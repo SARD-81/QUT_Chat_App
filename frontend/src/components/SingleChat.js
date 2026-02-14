@@ -2,7 +2,7 @@ import { FormControl } from "@chakra-ui/form-control";
 import { Input } from "@chakra-ui/input";
 import { Box, Text } from "@chakra-ui/layout";
 import "./styles.css";
-import { IconButton, Spinner, useToast } from "@chakra-ui/react";
+import { IconButton, Spinner, useToast, HStack, Button } from "@chakra-ui/react";
 import { getSender, getSenderFull } from "../config/ChatLogics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
@@ -28,6 +28,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [oldestMessageId, setOldestMessageId] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
   const [typing, setTyping] = useState(false);
   const [istyping, setIsTyping] = useState(false);
   const chatContainerRef = useRef(null);
@@ -182,6 +183,43 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   }, [selectedChat, messages.length, user.token, user._id]);
 
+  const handleReplyMessage = (message) => {
+    setReplyingTo(message);
+  };
+
+  const handleReactToMessage = async (message, emoji) => {
+    try {
+      const config = {
+        headers: {
+          "Content-type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+
+      const hasCurrentReaction = (message.reactions || []).some(
+        (reaction) =>
+          reaction.userId?.toString() === user._id.toString() && reaction.emoji === emoji
+      );
+
+      const endpoint = `/api/message/${message._id}/react`;
+      const request = hasCurrentReaction
+        ? axios.delete(endpoint, { ...config, data: { emoji } })
+        : axios.post(endpoint, { emoji }, config);
+
+      const { data } = await request;
+      updateMessageInState(data);
+    } catch (error) {
+      toast({
+        title: "Error Occured!",
+        description: "Failed to update reaction",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom",
+      });
+    }
+  };
+
   const updateMessageInState = useCallback((updatedMessage) => {
     if (!updatedMessage?._id) return;
 
@@ -279,6 +317,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           {
             content: newMessage,
             chatId: selectedChat,
+            replyTo: replyingTo?._id || undefined,
           },
           config
         );
@@ -298,6 +337,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         });
 
         setMessages((prevMessages) => [...prevMessages, pendingMessage]);
+        setReplyingTo(null);
         shouldScrollToBottomRef.current = true;
       } catch (error) {
         toast({
@@ -324,6 +364,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
   useEffect(() => {
     fetchMessages();
+    setReplyingTo(null);
 
     selectedChatCompare = selectedChat;
   }, [selectedChat, fetchMessages]);
@@ -464,12 +505,44 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       });
     };
 
+    const onReactionUpdated = (updatedMessage) => {
+      const chatId =
+        typeof updatedMessage.chat === "string"
+          ? updatedMessage.chat
+          : updatedMessage.chat?._id;
+
+      if (!selectedChatCompare || selectedChatCompare._id !== chatId?.toString()) return;
+
+      updateMessageInState(updatedMessage);
+    };
+
+    const onMessageReplied = (repliedMessage) => {
+      const chatId =
+        typeof repliedMessage.chat === "string"
+          ? repliedMessage.chat
+          : repliedMessage.chat?._id;
+
+      if (!selectedChatCompare || selectedChatCompare._id !== chatId?.toString()) return;
+
+      setMessages((prevMessages) => {
+        if (prevMessages.some((message) => message._id === repliedMessage._id)) {
+          return prevMessages;
+        }
+
+        return [...prevMessages, repliedMessage];
+      });
+    };
+
     socket.on("message_updated", onMessageUpdated);
     socket.on("message_deleted", onMessageDeleted);
+    socket.on("reaction_updated", onReactionUpdated);
+    socket.on("message_replied", onMessageReplied);
 
     return () => {
       socket.off("message_updated", onMessageUpdated);
       socket.off("message_deleted", onMessageDeleted);
+      socket.off("reaction_updated", onReactionUpdated);
+      socket.off("message_replied", onMessageReplied);
     };
   }, [updateMessageInState]);
 
@@ -611,6 +684,9 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                   latestOutgoingMessage={latestOutgoingMessage}
                   onEditMessage={handleEditMessage}
                   onDeleteMessage={handleDeleteMessage}
+                  onReact={handleReactToMessage}
+                  onReply={handleReplyMessage}
+                  replyingToMessageId={replyingTo?._id}
                 />
               </div>
             )}
@@ -632,6 +708,30 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 </div>
               ) : (
                 <></>
+              )}
+              {replyingTo && (
+                <Box
+                  mb={2}
+                  p={2}
+                  borderRadius="md"
+                  bg="blue.50"
+                  borderLeft="4px solid"
+                  borderLeftColor="blue.400"
+                >
+                  <HStack justifyContent="space-between" alignItems="flex-start">
+                    <Box>
+                      <Text fontSize="xs" color="gray.600" fontWeight="semibold">
+                        Replying to {replyingTo.sender?.name || "message"}
+                      </Text>
+                      <Text fontSize="sm" color="gray.700" noOfLines={2}>
+                        {replyingTo.isDeleted ? "This message was deleted" : replyingTo.content}
+                      </Text>
+                    </Box>
+                    <Button size="xs" onClick={() => setReplyingTo(null)}>
+                      Cancel
+                    </Button>
+                  </HStack>
+                </Box>
               )}
               <Input
                 variant="filled"

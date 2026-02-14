@@ -56,7 +56,12 @@ const allMessages = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1, _id: -1 })
       .limit(limit + 1)
       .populate("sender", "name pic email")
-      .populate("chat");
+      .populate("chat")
+    .populate({
+      path: "replyTo",
+      select: "content sender isDeleted",
+      populate: { path: "sender", select: "name pic email" },
+    });
 
     const hasMore = messagesDesc.length > limit;
     const pageMessagesDesc = hasMore ? messagesDesc.slice(0, limit) : messagesDesc;
@@ -77,11 +82,29 @@ const allMessages = asyncHandler(async (req, res) => {
 //@route           POST /api/Message/
 //@access          Protected
 const sendMessage = asyncHandler(async (req, res) => {
-  const { content, chatId } = req.body;
+  const { content, chatId, replyTo } = req.body;
 
   if (!content || !chatId) {
     console.log("Invalid data passed into request");
     return res.sendStatus(400);
+  }
+
+  let validatedReplyTo = null;
+
+  if (replyTo) {
+    if (!mongoose.Types.ObjectId.isValid(replyTo)) {
+      res.status(400);
+      throw new Error("Invalid replyTo message id");
+    }
+
+    const referencedMessage = await Message.findById(replyTo).select("_id chat content");
+
+    if (!referencedMessage || referencedMessage.chat.toString() !== chatId.toString()) {
+      res.status(400);
+      throw new Error("Referenced reply message is invalid");
+    }
+
+    validatedReplyTo = referencedMessage._id;
   }
 
   var newMessage = {
@@ -90,6 +113,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     chat: chatId,
     deliveredTo: [],
     readBy: [req.user._id],
+    replyTo: validatedReplyTo,
   };
 
   try {
@@ -97,12 +121,25 @@ const sendMessage = asyncHandler(async (req, res) => {
 
     message = await message.populate("sender", "name pic").execPopulate();
     message = await message.populate("chat").execPopulate();
+    message = await message
+      .populate({
+        path: "replyTo",
+        select: "content sender isDeleted",
+        populate: { path: "sender", select: "name pic email" },
+      })
+      .execPopulate();
     message = await User.populate(message, {
       path: "chat.users",
       select: "name pic email",
     });
 
     await Chat.findByIdAndUpdate(req.body.chatId, { latestMessage: message });
+
+    const io = req.app.get("io");
+
+    if (message.replyTo) {
+      emitMessageToChatRoom(io, message.chat._id, "message_replied", message);
+    }
 
     res.json(message);
   } catch (error) {
@@ -185,6 +222,125 @@ const emitMessageToChatRoom = (io, chatId, eventName, payload) => {
   io.to(chatId.toString()).emit(eventName, payload);
 };
 
+
+const validateMessageAccess = async (messageId, userId) => {
+  if (!mongoose.Types.ObjectId.isValid(messageId)) {
+    const error = new Error("Invalid message id");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const message = await Message.findById(messageId).populate("chat", "users");
+
+  if (!message) {
+    const error = new Error("Message not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const isParticipant = (message.chat?.users || []).some(
+    (chatUserId) => chatUserId.toString() === userId.toString()
+  );
+
+  if (!isParticipant) {
+    const error = new Error("Not authorized to access this message");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return message;
+};
+
+const hydrateMessage = async (messageId) =>
+  Message.findById(messageId)
+    .populate("sender", "name pic email")
+    .populate("chat")
+    .populate({
+      path: "replyTo",
+      select: "content sender isDeleted",
+      populate: { path: "sender", select: "name pic email" },
+    });
+
+//@description     React to message (toggle per emoji/user)
+//@route           POST /api/Message/:messageId/react
+//@access          Protected
+const reactToMessage = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+  const { emoji } = req.body;
+
+  const normalizedEmoji = typeof emoji === "string" ? emoji.trim() : "";
+
+  if (!normalizedEmoji) {
+    res.status(400);
+    throw new Error("Emoji is required");
+  }
+
+  let message;
+
+  try {
+    message = await validateMessageAccess(messageId, req.user._id);
+  } catch (error) {
+    res.status(error.statusCode || 400);
+    throw new Error(error.message);
+  }
+
+  const existingReactionIndex = (message.reactions || []).findIndex(
+    (reaction) =>
+      reaction.userId.toString() === req.user._id.toString() && reaction.emoji === normalizedEmoji
+  );
+
+  if (existingReactionIndex >= 0) {
+    message.reactions.splice(existingReactionIndex, 1);
+  } else {
+    message.reactions.push({ emoji: normalizedEmoji, userId: req.user._id });
+  }
+
+  await message.save();
+
+  const hydratedMessage = await hydrateMessage(message._id);
+  const io = req.app.get("io");
+  emitMessageToChatRoom(io, hydratedMessage.chat._id, "reaction_updated", hydratedMessage);
+
+  res.json(hydratedMessage);
+});
+
+//@description     Remove reaction from message
+//@route           DELETE /api/Message/:messageId/react
+//@access          Protected
+const removeReaction = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+  const { emoji } = req.body;
+
+  const normalizedEmoji = typeof emoji === "string" ? emoji.trim() : "";
+
+  if (!normalizedEmoji) {
+    res.status(400);
+    throw new Error("Emoji is required");
+  }
+
+  let message;
+
+  try {
+    message = await validateMessageAccess(messageId, req.user._id);
+  } catch (error) {
+    res.status(error.statusCode || 400);
+    throw new Error(error.message);
+  }
+
+  message.reactions = (message.reactions || []).filter(
+    (reaction) =>
+      !(reaction.userId.toString() === req.user._id.toString() && reaction.emoji === normalizedEmoji)
+  );
+
+  await message.save();
+
+  const hydratedMessage = await hydrateMessage(message._id);
+  const io = req.app.get("io");
+  emitMessageToChatRoom(io, hydratedMessage.chat._id, "reaction_updated", hydratedMessage);
+
+  res.json(hydratedMessage);
+});
+
 //@description     Edit existing message content
 //@route           PUT /api/Message/:messageId
 //@access          Protected
@@ -234,7 +390,12 @@ const editMessage = asyncHandler(async (req, res) => {
 
   let updatedMessage = await message.save();
   updatedMessage = await updatedMessage.populate("sender", "name pic email");
-  updatedMessage = await updatedMessage.populate("chat");
+  updatedMessage = await updatedMessage.populate("chat")
+    .populate({
+      path: "replyTo",
+      select: "content sender isDeleted",
+      populate: { path: "sender", select: "name pic email" },
+    });
 
   await Chat.findByIdAndUpdate(updatedMessage.chat._id, { latestMessage: updatedMessage });
 
@@ -281,7 +442,12 @@ const deleteMessage = asyncHandler(async (req, res) => {
 
   let deletedMessage = await message.save();
   deletedMessage = await deletedMessage.populate("sender", "name pic email");
-  deletedMessage = await deletedMessage.populate("chat");
+  deletedMessage = await deletedMessage.populate("chat")
+    .populate({
+      path: "replyTo",
+      select: "content sender isDeleted",
+      populate: { path: "sender", select: "name pic email" },
+    });
 
   await Chat.findByIdAndUpdate(deletedMessage.chat._id, { latestMessage: deletedMessage });
 
@@ -302,6 +468,8 @@ module.exports = {
   allMessages,
   sendMessage,
   markChatMessagesAsRead,
+  reactToMessage,
+  removeReaction,
   editMessage,
   deleteMessage,
 };

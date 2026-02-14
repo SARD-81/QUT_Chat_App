@@ -48,6 +48,7 @@ const MyChats = ({ fetchAgain }) => {
   const getLatestMessagePreview = (latestMessage) => {
     if (!latestMessage) return "";
     if (latestMessage.isDeleted) return "This message was deleted";
+    if (latestMessage.type === "gif") return "🎞️ GIF";
     if (latestMessage.content) return latestMessage.content;
     if (latestMessage.attachment) {
       return latestMessage.attachment.mimeType?.startsWith("image/")

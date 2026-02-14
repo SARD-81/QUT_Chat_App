@@ -2,6 +2,14 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Environment Variables
+
+Create a `frontend/.env` file and set:
+
+- `REACT_APP_TENOR_API_KEY`: API key used by the chat GIF picker (Tenor API).
+
+> Restart the frontend dev server after updating environment variables.
+
 ## Available Scripts
 
 In the project directory, you can run:

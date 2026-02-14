@@ -83,7 +83,7 @@ const allMessages = asyncHandler(async (req, res) => {
 //@route           POST /api/Message/
 //@access          Protected
 const sendMessage = asyncHandler(async (req, res) => {
-  const { content, chatId, replyTo, attachment } = req.body;
+  const { content, chatId, replyTo, attachment, type } = req.body;
 
   const trimmedContent = typeof content === "string" ? content.trim() : "";
 
@@ -91,6 +91,9 @@ const sendMessage = asyncHandler(async (req, res) => {
     console.log("Invalid data passed into request");
     return res.sendStatus(400);
   }
+
+
+  const normalizedType = type === "gif" ? "gif" : "text";
 
   let validatedReplyTo = null;
 
@@ -144,6 +147,7 @@ const sendMessage = asyncHandler(async (req, res) => {
   var newMessage = {
     sender: req.user._id,
     content: trimmedContent,
+    type: normalizedType,
     chat: chatId,
     deliveredTo: [],
     readBy: [req.user._id],

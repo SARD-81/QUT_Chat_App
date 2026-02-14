@@ -16,6 +16,7 @@ import io from "socket.io-client";
 import UpdateGroupChatModal from "./miscellaneous/UpdateGroupChatModal";
 import { ChatState } from "../Context/ChatProvider";
 import { uploadFileToCloudinary, validateAttachmentFile } from "../config/uploadConfig";
+import GifPicker from "./GifPicker";
 const ENDPOINT = "http://localhost:5000"; // "https://talk-a-tive.herokuapp.com"; -> After deployment
 var socket, selectedChatCompare;
 
@@ -305,9 +306,9 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
-  const sendCurrentMessage = async () => {
-    const trimmedMessage = newMessage.trim();
-
+  const sendCurrentMessage = async ({ contentOverride, type = "text" } = {}) => {
+    const rawContent = typeof contentOverride === "string" ? contentOverride : newMessage;
+    const trimmedMessage = rawContent.trim();
     if (!selectedChat || (!trimmedMessage && !pendingAttachment) || attachmentUploading) return;
 
     socket.emit("stop typing", selectedChat._id);
@@ -329,6 +330,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         {
           content: trimmedMessage,
           chatId: selectedChat,
+          type,
           replyTo: replyingTo?._id || undefined,
           attachment: attachmentToSend || undefined,
         },
@@ -367,6 +369,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       event.preventDefault();
       await sendCurrentMessage();
     }
+  };
+
+  const handleGifSelection = async (gif) => {
+    await sendCurrentMessage({ contentOverride: gif.url, type: "gif" });
   };
 
   const handleFileSelection = async (event) => {
@@ -811,6 +817,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 onChange={handleFileSelection}
               />
               <HStack>
+                <GifPicker
+                  onSelectGif={handleGifSelection}
+                  isDisabled={!selectedChat || attachmentUploading}
+                />
                 <IconButton
                   aria-label="Attach file"
                   icon={<AttachmentIcon />}

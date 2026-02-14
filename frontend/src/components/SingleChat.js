@@ -201,8 +201,22 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           },
           config
         );
-        socket.emit("new message", data);
-        setMessages((prevMessages) => [...prevMessages, data]);
+
+        const pendingMessage = { ...data, socketStatus: "sending" };
+
+        socket.emit("new message", pendingMessage, ({ status, messageId } = {}) => {
+          if (status !== "sent" || !messageId) return;
+
+          setMessages((prevMessages) =>
+            prevMessages.map((message) =>
+              message._id === messageId
+                ? { ...message, socketStatus: "sent" }
+                : message
+            )
+          );
+        });
+
+        setMessages((prevMessages) => [...prevMessages, pendingMessage]);
         shouldScrollToBottomRef.current = true;
       } catch (error) {
         toast({
@@ -243,6 +257,57 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   useEffect(() => {
     markChatAsRead();
   }, [markChatAsRead]);
+
+  useEffect(() => {
+    const onMessageDelivered = ({ chatId, messageId, userId }) => {
+      if (!selectedChatCompare || selectedChatCompare._id !== chatId) return;
+
+      setMessages((prevMessages) =>
+        prevMessages.map((message) => {
+          if (message._id !== messageId) return message;
+
+          const alreadyDelivered = (message.deliveredTo || []).some(
+            (deliveredUserId) => deliveredUserId.toString() === userId.toString()
+          );
+
+          if (alreadyDelivered) return message;
+
+          return {
+            ...message,
+            deliveredTo: [...(message.deliveredTo || []), userId],
+          };
+        })
+      );
+
+      if (!setChats) return;
+
+      setChats((prevChats) =>
+        (prevChats || []).map((chat) => {
+          if (!chat.latestMessage || chat.latestMessage._id !== messageId) return chat;
+
+          const alreadyDelivered = (chat.latestMessage.deliveredTo || []).some(
+            (deliveredUserId) => deliveredUserId.toString() === userId.toString()
+          );
+
+          if (alreadyDelivered) return chat;
+
+          return {
+            ...chat,
+            latestMessage: {
+              ...chat.latestMessage,
+              deliveredTo: [...(chat.latestMessage.deliveredTo || []), userId],
+            },
+          };
+        })
+      );
+    };
+
+    socket.on("message_delivered", onMessageDelivered);
+
+    return () => {
+      socket.off("message_delivered", onMessageDelivered);
+    };
+  }, [setChats]);
 
   useEffect(() => {
     const onMessageRead = ({ chatId, messageId, userId }) => {
@@ -297,6 +362,11 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
   useEffect(() => {
     const onMessageReceived = (newMessageRecieved) => {
+      socket.emit("message delivered", {
+        messageId: newMessageRecieved._id,
+        chatId: newMessageRecieved.chat._id,
+      });
+
       if (
         !selectedChatCompare || // if chat is not selected or doesn't match current chat
         selectedChatCompare._id !== newMessageRecieved.chat._id

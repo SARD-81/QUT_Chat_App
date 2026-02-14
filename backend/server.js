@@ -1,4 +1,5 @@
 const express = require("express");
+const helmet = require("helmet");
 const connectDB = require("./config/db");
 const dotenv = require("dotenv");
 const userRoutes = require("./routes/userRoutes");
@@ -13,6 +14,8 @@ dotenv.config();
 connectDB();
 const app = express();
 
+// Baseline security headers (CSP defaults are enabled; extend policy if your SPA adds external sources).
+app.use(helmet());
 app.use(express.json()); // to accept json data
 app.use(cors(expressCorsOptions));
 

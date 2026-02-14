@@ -127,9 +127,19 @@ const MyChats = ({ fetchAgain }) => {
                 {chat.latestMessage && (
                   <Text fontSize="xs">
                     <b>{chat.latestMessage.sender.name} : </b>
-                    {chat.latestMessage.content.length > 50
-                      ? chat.latestMessage.content.substring(0, 51) + "..."
+                    {(chat.latestMessage.isDeleted
+                      ? "This message was deleted"
+                      : chat.latestMessage.content).length > 50
+                      ? (chat.latestMessage.isDeleted
+                          ? "This message was deleted"
+                          : chat.latestMessage.content
+                        ).substring(0, 51) + "..."
+                      : chat.latestMessage.isDeleted
+                      ? "This message was deleted"
                       : chat.latestMessage.content}
+                    {chat.latestMessage.editedAt && !chat.latestMessage.isDeleted
+                      ? " (edited)"
+                      : ""}
                     {getLatestMessageReceiptLabel(chat)
                       ? ` • ${getLatestMessageReceiptLabel(chat)}`
                       : ""}

@@ -6,12 +6,15 @@ const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const path = require("path");
+const cors = require("cors");
+const { expressCorsOptions, socketCorsOptions } = require("./config/cors");
 
 dotenv.config();
 connectDB();
 const app = express();
 
 app.use(express.json()); // to accept json data
+app.use(cors(expressCorsOptions));
 
 // app.get("/", (req, res) => {
 //   res.send("API Running!");
@@ -52,10 +55,7 @@ const server = app.listen(
 
 const io = require("socket.io")(server, {
   pingTimeout: 60000,
-  cors: {
-    origin: "http://localhost:3000",
-    // credentials: true,
-  },
+  cors: socketCorsOptions,
 });
 
 io.on("connection", (socket) => {

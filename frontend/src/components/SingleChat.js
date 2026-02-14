@@ -4,7 +4,7 @@ import { Box, Text } from "@chakra-ui/layout";
 import "./styles.css";
 import { IconButton, Spinner, useToast } from "@chakra-ui/react";
 import { getSender, getSenderFull } from "../config/ChatLogics";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { ArrowBackIcon } from "@chakra-ui/icons";
 import ProfileModal from "./miscellaneous/ProfileModal";
@@ -18,13 +18,20 @@ import { ChatState } from "../Context/ChatProvider";
 const ENDPOINT = "http://localhost:5000"; // "https://talk-a-tive.herokuapp.com"; -> After deployment
 var socket, selectedChatCompare;
 
+const PAGE_SIZE = 30;
+
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [oldestMessageId, setOldestMessageId] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [typing, setTyping] = useState(false);
   const [istyping, setIsTyping] = useState(false);
+  const chatContainerRef = useRef(null);
+  const shouldScrollToBottomRef = useRef(false);
   const toast = useToast();
 
   const defaultOptions = {
@@ -38,7 +45,15 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const { selectedChat, setSelectedChat, user, notification, setNotification } =
     ChatState();
 
-  const fetchMessages = async () => {
+  const scrollToBottom = () => {
+    const container = chatContainerRef.current;
+
+    if (!container) return;
+
+    container.scrollTop = container.scrollHeight;
+  };
+
+  const fetchMessages = useCallback(async () => {
     if (!selectedChat) return;
 
     try {
@@ -46,19 +61,24 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         headers: {
           Authorization: `Bearer ${user.token}`,
         },
+        params: {
+          limit: PAGE_SIZE,
+        },
       };
 
       setLoading(true);
 
-      const { data } = await axios.get(
-        `/api/message/${selectedChat._id}`,
-        config
-      );
-      setMessages(data);
+      const { data } = await axios.get(`/api/message/${selectedChat._id}`, config);
+
+      setMessages(data.messages || []);
+      setHasMoreMessages(Boolean(data.hasMore));
+      setOldestMessageId(data.nextBefore);
+      shouldScrollToBottomRef.current = true;
       setLoading(false);
 
       socket.emit("join chat", selectedChat._id);
     } catch (error) {
+      setLoading(false);
       toast({
         title: "Error Occured!",
         description: "Failed to Load the Messages",
@@ -68,7 +88,51 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         position: "bottom",
       });
     }
-  };
+  }, [selectedChat, user.token, toast]);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!selectedChat || !hasMoreMessages || !oldestMessageId || loadingOlder) return;
+
+    const container = chatContainerRef.current;
+    const previousScrollHeight = container ? container.scrollHeight : 0;
+
+    try {
+      setLoadingOlder(true);
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+        params: {
+          limit: PAGE_SIZE,
+          before: oldestMessageId,
+        },
+      };
+
+      const { data } = await axios.get(`/api/message/${selectedChat._id}`, config);
+
+      setMessages((prevMessages) => [...(data.messages || []), ...prevMessages]);
+      setHasMoreMessages(Boolean(data.hasMore));
+      setOldestMessageId(data.nextBefore);
+
+      requestAnimationFrame(() => {
+        if (!container) return;
+
+        const newScrollHeight = container.scrollHeight;
+        container.scrollTop = newScrollHeight - previousScrollHeight + container.scrollTop;
+      });
+    } catch (error) {
+      toast({
+        title: "Error Occured!",
+        description: "Failed to Load older Messages",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [selectedChat, hasMoreMessages, oldestMessageId, loadingOlder, user.token, toast]);
 
   const sendMessage = async (event) => {
     if (event.key === "Enter" && newMessage) {
@@ -90,7 +154,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           config
         );
         socket.emit("new message", data);
-        setMessages([...messages, data]);
+        setMessages((prevMessages) => [...prevMessages, data]);
+        shouldScrollToBottomRef.current = true;
       } catch (error) {
         toast({
           title: "Error Occured!",
@@ -118,11 +183,17 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     fetchMessages();
 
     selectedChatCompare = selectedChat;
-    // eslint-disable-next-line
-  }, [selectedChat]);
+  }, [selectedChat, fetchMessages]);
 
   useEffect(() => {
-    socket.on("message recieved", (newMessageRecieved) => {
+    if (shouldScrollToBottomRef.current) {
+      scrollToBottom();
+      shouldScrollToBottomRef.current = false;
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    const onMessageReceived = (newMessageRecieved) => {
       if (
         !selectedChatCompare || // if chat is not selected or doesn't match current chat
         selectedChatCompare._id !== newMessageRecieved.chat._id
@@ -132,10 +203,17 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           setFetchAgain(!fetchAgain);
         }
       } else {
-        setMessages([...messages, newMessageRecieved]);
+        setMessages((prevMessages) => [...prevMessages, newMessageRecieved]);
+        shouldScrollToBottomRef.current = true;
       }
-    });
-  });
+    };
+
+    socket.on("message recieved", onMessageReceived);
+
+    return () => {
+      socket.off("message recieved", onMessageReceived);
+    };
+  }, [notification, setNotification, setFetchAgain, fetchAgain]);
 
   const typingHandler = (e) => {
     setNewMessage(e.target.value);
@@ -156,6 +234,12 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         setTyping(false);
       }
     }, timerLength);
+  };
+
+  const handleChatScroll = (event) => {
+    if (event.currentTarget.scrollTop <= 40) {
+      loadOlderMessages();
+    }
   };
 
   return (
@@ -216,7 +300,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 margin="auto"
               />
             ) : (
-              <div className="messages">
+              <div
+                className="messages"
+                ref={chatContainerRef}
+                onScroll={handleChatScroll}
+              >
+                {loadingOlder && (
+                  <Spinner size="sm" alignSelf="center" mb={2} mt={1} />
+                )}
                 <ScrollableChat messages={messages} />
               </div>
             )}

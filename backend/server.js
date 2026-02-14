@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const path = require("path");
 const cors = require("cors");
@@ -27,6 +28,7 @@ app.use(cors(expressCorsOptions));
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // --------------------------deployment------------------------------
 

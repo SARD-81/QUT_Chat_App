@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Message = require("../models/messageModel");
 const User = require("../models/userModel");
 const Chat = require("../models/chatModel");
+const { MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES } = require("./uploadControllers");
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
@@ -82,9 +83,11 @@ const allMessages = asyncHandler(async (req, res) => {
 //@route           POST /api/Message/
 //@access          Protected
 const sendMessage = asyncHandler(async (req, res) => {
-  const { content, chatId, replyTo } = req.body;
+  const { content, chatId, replyTo, attachment } = req.body;
 
-  if (!content || !chatId) {
+  const trimmedContent = typeof content === "string" ? content.trim() : "";
+
+  if (!chatId || (!trimmedContent && !attachment)) {
     console.log("Invalid data passed into request");
     return res.sendStatus(400);
   }
@@ -107,13 +110,45 @@ const sendMessage = asyncHandler(async (req, res) => {
     validatedReplyTo = referencedMessage._id;
   }
 
+  let validatedAttachment = null;
+
+  if (attachment) {
+    const { url, fileName, mimeType, size, resourceType, publicId } = attachment;
+
+    if (!url || !fileName || !mimeType || !size) {
+      res.status(400);
+      throw new Error("Attachment metadata is incomplete");
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+      res.status(400);
+      throw new Error("Attachment type is not allowed");
+    }
+
+    const numericSize = Number(size);
+    if (!Number.isFinite(numericSize) || numericSize <= 0 || numericSize > MAX_FILE_SIZE_BYTES) {
+      res.status(400);
+      throw new Error("Attachment exceeds size limit");
+    }
+
+    validatedAttachment = {
+      url,
+      fileName,
+      mimeType,
+      size: numericSize,
+      resourceType: resourceType || "raw",
+      publicId,
+    };
+  }
+
   var newMessage = {
     sender: req.user._id,
-    content: content,
+    content: trimmedContent,
     chat: chatId,
     deliveredTo: [],
     readBy: [req.user._id],
     replyTo: validatedReplyTo,
+    attachment: validatedAttachment,
   };
 
   try {

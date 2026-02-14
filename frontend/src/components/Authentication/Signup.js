@@ -6,6 +6,7 @@ import { useToast } from "@chakra-ui/toast";
 import axios from "axios";
 import { useState } from "react";
 import { useHistory } from "react-router";
+import { uploadFileToCloudinary, validateAttachmentFile } from "../../config/uploadConfig";
 
 const Signup = () => {
   const [show, setShow] = useState(false);
@@ -84,41 +85,14 @@ const Signup = () => {
     }
   };
 
-  const postDetails = (pics) => {
+  const postDetails = async (pics) => {
     setPicLoading(true);
-    if (pics === undefined) {
+
+    const validationError = validateAttachmentFile(pics, { avatarOnly: true });
+
+    if (validationError) {
       toast({
-        title: "Please Select an Image!",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
-      return;
-    }
-    console.log(pics);
-    if (pics.type === "image/jpeg" || pics.type === "image/png") {
-      const data = new FormData();
-      data.append("file", pics);
-      data.append("upload_preset", "chat-app");
-      data.append("cloud_name", "piyushproj");
-      fetch("https://api.cloudinary.com/v1_1/piyushproj/image/upload", {
-        method: "post",
-        body: data,
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          setPic(data.url.toString());
-          console.log(data.url.toString());
-          setPicLoading(false);
-        })
-        .catch((err) => {
-          console.log(err);
-          setPicLoading(false);
-        });
-    } else {
-      toast({
-        title: "Please Select an Image!",
+        title: validationError,
         status: "warning",
         duration: 5000,
         isClosable: true,
@@ -126,6 +100,22 @@ const Signup = () => {
       });
       setPicLoading(false);
       return;
+    }
+
+    try {
+      const uploaded = await uploadFileToCloudinary(pics, "avatar");
+      setPic(uploaded.url);
+    } catch (err) {
+      toast({
+        title: "Image upload failed",
+        description: err.response?.data?.message || "Please try again",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+    } finally {
+      setPicLoading(false);
     }
   };
 

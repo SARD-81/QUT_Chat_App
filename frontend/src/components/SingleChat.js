@@ -6,7 +6,7 @@ import { IconButton, Spinner, useToast, HStack, Button } from "@chakra-ui/react"
 import { getSender, getSenderFull } from "../config/ChatLogics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { ArrowBackIcon } from "@chakra-ui/icons";
+import { ArrowBackIcon, AttachmentIcon, CloseIcon } from "@chakra-ui/icons";
 import ProfileModal from "./miscellaneous/ProfileModal";
 import ScrollableChat from "./ScrollableChat";
 import Lottie from "react-lottie";
@@ -15,6 +15,7 @@ import animationData from "../animations/typing.json";
 import io from "socket.io-client";
 import UpdateGroupChatModal from "./miscellaneous/UpdateGroupChatModal";
 import { ChatState } from "../Context/ChatProvider";
+import { uploadFileToCloudinary, validateAttachmentFile } from "../config/uploadConfig";
 const ENDPOINT = "http://localhost:5000"; // "https://talk-a-tive.herokuapp.com"; -> After deployment
 var socket, selectedChatCompare;
 
@@ -27,11 +28,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [oldestMessageId, setOldestMessageId] = useState(null);
   const [newMessage, setNewMessage] = useState("");
+  const [pendingAttachment, setPendingAttachment] = useState(null);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [typing, setTyping] = useState(false);
   const [istyping, setIsTyping] = useState(false);
   const chatContainerRef = useRef(null);
+  const fileInputRef = useRef(null);
   const shouldScrollToBottomRef = useRef(false);
   const toast = useToast();
 
@@ -301,56 +305,104 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
-  const sendMessage = async (event) => {
-    if (event.key === "Enter" && newMessage) {
-      socket.emit("stop typing", selectedChat._id);
-      try {
-        const config = {
-          headers: {
-            "Content-type": "application/json",
-            Authorization: `Bearer ${user.token}`,
-          },
-        };
-        setNewMessage("");
-        const { data } = await axios.post(
-          "/api/message",
-          {
-            content: newMessage,
-            chatId: selectedChat,
-            replyTo: replyingTo?._id || undefined,
-          },
-          config
+  const sendCurrentMessage = async () => {
+    const trimmedMessage = newMessage.trim();
+
+    if (!selectedChat || (!trimmedMessage && !pendingAttachment) || attachmentUploading) return;
+
+    socket.emit("stop typing", selectedChat._id);
+
+    try {
+      const config = {
+        headers: {
+          "Content-type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+
+      setNewMessage("");
+      const attachmentToSend = pendingAttachment;
+      setPendingAttachment(null);
+
+      const { data } = await axios.post(
+        "/api/message",
+        {
+          content: trimmedMessage,
+          chatId: selectedChat,
+          replyTo: replyingTo?._id || undefined,
+          attachment: attachmentToSend || undefined,
+        },
+        config
+      );
+
+      const pendingMessage = { ...data, socketStatus: "sending" };
+
+      socket.emit("new message", pendingMessage, ({ status, messageId } = {}) => {
+        if (status !== "sent" || !messageId) return;
+
+        setMessages((prevMessages) =>
+          prevMessages.map((message) =>
+            message._id === messageId ? { ...message, socketStatus: "sent" } : message
+          )
         );
+      });
 
-        const pendingMessage = { ...data, socketStatus: "sending" };
-
-        socket.emit("new message", pendingMessage, ({ status, messageId } = {}) => {
-          if (status !== "sent" || !messageId) return;
-
-          setMessages((prevMessages) =>
-            prevMessages.map((message) =>
-              message._id === messageId
-                ? { ...message, socketStatus: "sent" }
-                : message
-            )
-          );
-        });
-
-        setMessages((prevMessages) => [...prevMessages, pendingMessage]);
-        setReplyingTo(null);
-        shouldScrollToBottomRef.current = true;
-      } catch (error) {
-        toast({
-          title: "Error Occured!",
-          description: "Failed to send the Message",
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-          position: "bottom",
-        });
-      }
+      setMessages((prevMessages) => [...prevMessages, pendingMessage]);
+      setReplyingTo(null);
+      shouldScrollToBottomRef.current = true;
+    } catch (error) {
+      toast({
+        title: "Error Occured!",
+        description: "Failed to send the Message",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
     }
   };
+
+  const sendMessage = async (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      await sendCurrentMessage();
+    }
+  };
+
+  const handleFileSelection = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    const validationError = validateAttachmentFile(file);
+    if (validationError) {
+      toast({
+        title: validationError,
+        status: "warning",
+        duration: 4000,
+        isClosable: true,
+        position: "bottom",
+      });
+      return;
+    }
+
+    try {
+      setAttachmentUploading(true);
+      const uploadedAttachment = await uploadFileToCloudinary(file, "attachment");
+      setPendingAttachment(uploadedAttachment);
+    } catch (error) {
+      toast({
+        title: "Attachment upload failed",
+        description: error.response?.data?.message || "Please try again",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+    } finally {
+      setAttachmentUploading(false);
+    }
+  };
+
 
   useEffect(() => {
     socket = io(ENDPOINT);
@@ -733,13 +785,54 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                   </HStack>
                 </Box>
               )}
-              <Input
-                variant="filled"
-                bg="#E0E0E0"
-                placeholder="Enter a message.."
-                value={newMessage}
-                onChange={typingHandler}
+              {pendingAttachment && (
+                <HStack
+                  mb={2}
+                  p={2}
+                  borderRadius="md"
+                  bg="green.50"
+                  justifyContent="space-between"
+                >
+                  <Text fontSize="sm" noOfLines={1}>
+                    Attached: {pendingAttachment.fileName}
+                  </Text>
+                  <IconButton
+                    aria-label="Remove attachment"
+                    size="xs"
+                    icon={<CloseIcon />}
+                    onClick={() => setPendingAttachment(null)}
+                  />
+                </HStack>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                onChange={handleFileSelection}
               />
+              <HStack>
+                <IconButton
+                  aria-label="Attach file"
+                  icon={<AttachmentIcon />}
+                  onClick={() => fileInputRef.current?.click()}
+                  isLoading={attachmentUploading}
+                />
+                <Input
+                  variant="filled"
+                  bg="#E0E0E0"
+                  placeholder="Enter a message.."
+                  value={newMessage}
+                  onChange={typingHandler}
+                />
+                <Button
+                  colorScheme="blue"
+                  onClick={sendCurrentMessage}
+                  isDisabled={!newMessage.trim() && !pendingAttachment}
+                  isLoading={attachmentUploading}
+                >
+                  Send
+                </Button>
+              </HStack>
             </FormControl>
           </Box>
         </>

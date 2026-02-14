@@ -18,6 +18,14 @@ const messageSchema = mongoose.Schema(
       },
     ],
     replyTo: { type: mongoose.Schema.Types.ObjectId, ref: "Message", default: null },
+    attachment: {
+      url: { type: String, trim: true },
+      fileName: { type: String, trim: true },
+      mimeType: { type: String, trim: true },
+      size: { type: Number },
+      resourceType: { type: String, trim: true },
+      publicId: { type: String, trim: true },
+    },
   },
   { timestamps: true }
 );

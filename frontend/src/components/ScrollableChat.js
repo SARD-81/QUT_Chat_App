@@ -12,6 +12,8 @@ import {
   Wrap,
   WrapItem,
   Box,
+  Link,
+  Image,
 } from "@chakra-ui/react";
 import { ChevronDownIcon } from "@chakra-ui/icons";
 import {
@@ -145,7 +147,25 @@ const ScrollableChat = ({
                       </Text>
                     </Box>
                   )}
-                  {m.content}
+                  {m.content && <Text>{m.content}</Text>}
+                  {m.attachment?.url && (
+                    <Box mt={2}>
+                      {m.attachment.mimeType?.startsWith("image/") ? (
+                        <Link href={m.attachment.url} isExternal>
+                          <Image
+                            src={m.attachment.url}
+                            alt={m.attachment.fileName || "attachment"}
+                            maxH="220px"
+                            borderRadius="md"
+                          />
+                        </Link>
+                      ) : (
+                        <Link href={m.attachment.url} isExternal color="blue.600" fontWeight="semibold">
+                          Download {m.attachment.fileName || "file"}
+                        </Link>
+                      )}
+                    </Box>
+                  )}
                   {m.editedAt && !m.isDeleted && (
                     <Text as="span" fontSize="xs" color="gray.600" ml={2}>
                       (edited)

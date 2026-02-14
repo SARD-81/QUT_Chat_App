@@ -45,6 +45,18 @@ const MyChats = ({ fetchAgain }) => {
     // eslint-disable-next-line
   }, [fetchAgain]);
 
+  const getLatestMessagePreview = (latestMessage) => {
+    if (!latestMessage) return "";
+    if (latestMessage.isDeleted) return "This message was deleted";
+    if (latestMessage.content) return latestMessage.content;
+    if (latestMessage.attachment) {
+      return latestMessage.attachment.mimeType?.startsWith("image/")
+        ? "📷 Image"
+        : `📎 ${latestMessage.attachment.fileName || "Attachment"}`;
+    }
+    return "";
+  };
+
   const getLatestMessageReceiptLabel = (chat) => {
     if (!chat?.latestMessage || !loggedUser) return "";
 
@@ -127,16 +139,9 @@ const MyChats = ({ fetchAgain }) => {
                 {chat.latestMessage && (
                   <Text fontSize="xs">
                     <b>{chat.latestMessage.sender.name} : </b>
-                    {(chat.latestMessage.isDeleted
-                      ? "This message was deleted"
-                      : chat.latestMessage.content).length > 50
-                      ? (chat.latestMessage.isDeleted
-                          ? "This message was deleted"
-                          : chat.latestMessage.content
-                        ).substring(0, 51) + "..."
-                      : chat.latestMessage.isDeleted
-                      ? "This message was deleted"
-                      : chat.latestMessage.content}
+                    {getLatestMessagePreview(chat.latestMessage).length > 50
+                      ? getLatestMessagePreview(chat.latestMessage).substring(0, 51) + "..."
+                      : getLatestMessagePreview(chat.latestMessage)}
                     {chat.latestMessage.editedAt && !chat.latestMessage.isDeleted
                       ? " (edited)"
                       : ""}

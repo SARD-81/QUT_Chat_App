@@ -76,6 +76,16 @@ Start the Client
 ![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/profile.PNG)
 
 
+## Environment variables
+
+Add these variables to your `.env` file for secure Cloudinary uploads:
+
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+
+Attachment uploads are now signed by the backend at `POST /api/upload/signature` and validated for MIME type + max size (10MB).
+
 ## Rate limiting
 
 To reduce abuse on authentication/user lookup endpoints, the backend now rate-limits:

@@ -2,11 +2,11 @@ import { FormControl } from "@chakra-ui/form-control";
 import { Input } from "@chakra-ui/input";
 import { Box, Text } from "@chakra-ui/layout";
 import "./styles.css";
-import { IconButton, Spinner, useToast, HStack, Button } from "@chakra-ui/react";
+import { IconButton, Spinner, useToast, HStack, Button, useColorModeValue } from "@chakra-ui/react";
 import { getSender, getSenderFull } from "../config/ChatLogics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { ArrowBackIcon, AttachmentIcon, CloseIcon } from "@chakra-ui/icons";
+import { ArrowBackIcon, AttachmentIcon, CloseIcon, ChatIcon } from "@chakra-ui/icons";
 import ProfileModal from "./miscellaneous/ProfileModal";
 import ScrollableChat from "./ScrollableChat";
 import Lottie from "react-lottie";
@@ -18,6 +18,9 @@ import { ChatState } from "../Context/ChatProvider";
 import { uploadFileToCloudinary, validateAttachmentFile } from "../config/uploadConfig";
 import GifPicker from "./GifPicker";
 import { cacheMessages, loadCachedMessages } from "../storage/chatCache";
+import ChatLoading from "./ChatLoading";
+import EmptyState from "./common/EmptyState";
+import { appToast } from "../utils/toast";
 const ENDPOINT = "http://localhost:5000"; // "https://talk-a-tive.herokuapp.com"; -> After deployment
 var socket, selectedChatCompare;
 
@@ -40,6 +43,11 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const fileInputRef = useRef(null);
   const shouldScrollToBottomRef = useRef(false);
   const toast = useToast();
+
+  const panelSurfaceBg = useColorModeValue("gray.50", "blackAlpha.300");
+  const panelBorderColor = useColorModeValue("gray.200", "whiteAlpha.200");
+  const chatHeaderBg = useColorModeValue("white", "gray.800");
+  const messageInputBg = useColorModeValue("white", "whiteAlpha.200");
 
   const defaultOptions = {
     loop: true,
@@ -112,6 +120,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       if (!navigator.onLine) return;
 
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: "Failed to Load the Messages",
         status: "error",
@@ -154,6 +163,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       });
     } catch (error) {
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: "Failed to Load older Messages",
         status: "error",
@@ -235,6 +245,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       updateMessageInState(data);
     } catch (error) {
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: "Failed to update reaction",
         status: "error",
@@ -290,6 +301,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       updateMessageInState(data);
     } catch (error) {
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: "Failed to edit the message",
         status: "error",
@@ -316,6 +328,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       updateMessageInState(data);
     } catch (error) {
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: "Failed to delete the message",
         status: "error",
@@ -374,6 +387,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       shouldScrollToBottomRef.current = true;
     } catch (error) {
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: "Failed to send the Message",
         status: "error",
@@ -402,6 +416,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const validationError = validateAttachmentFile(file);
     if (validationError) {
       toast({
+        ...appToast,
         title: validationError,
         status: "warning",
         duration: 4000,
@@ -417,6 +432,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       setPendingAttachment(uploadedAttachment);
     } catch (error) {
       toast({
+        ...appToast,
         title: "Attachment upload failed",
         description: error.response?.data?.message || "Please try again",
         status: "error",
@@ -679,6 +695,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
+  useEffect(() => {
+    const onEsc = (event) => {
+      if (event.key === "Escape") setReplyingTo(null);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, []);
+
   const latestOutgoingMessage = useMemo(() => {
     if (!messages.length || !selectedChat) return null;
 
@@ -701,7 +725,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       {selectedChat ? (
         <>
           <Text
-            fontSize={{ base: "28px", md: "30px" }}
+            fontSize={{ base: "24px", md: "28px" }}
             pb={3}
             px={2}
             w="100%"
@@ -709,6 +733,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
             d="flex"
             justifyContent={{ base: "space-between" }}
             alignItems="center"
+            position="sticky"
+            top={0}
+            bg={chatHeaderBg}
+            zIndex={2}
           >
             <IconButton
               d={{ base: "flex", md: "none" }}
@@ -739,20 +767,16 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
             flexDir="column"
             justifyContent="flex-end"
             p={3}
-            bg="#E8E8E8"
+            bg={panelSurfaceBg}
             w="100%"
             h="100%"
             borderRadius="lg"
             overflowY="hidden"
+            borderWidth="1px"
+            borderColor={panelBorderColor}
           >
             {loading ? (
-              <Spinner
-                size="xl"
-                w={20}
-                h={20}
-                alignSelf="center"
-                margin="auto"
-              />
+              <ChatLoading variant="messages" count={8} />
             ) : (
               <div
                 className="messages"
@@ -762,15 +786,19 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 {loadingOlder && (
                   <Spinner size="sm" alignSelf="center" mb={2} mt={1} />
                 )}
-                <ScrollableChat
-                  messages={messages}
-                  latestOutgoingMessage={latestOutgoingMessage}
-                  onEditMessage={handleEditMessage}
-                  onDeleteMessage={handleDeleteMessage}
-                  onReact={handleReactToMessage}
-                  onReply={handleReplyMessage}
-                  replyingToMessageId={replyingTo?._id}
-                />
+                {messages.length ? (
+                  <ScrollableChat
+                    messages={messages}
+                    latestOutgoingMessage={latestOutgoingMessage}
+                    onEditMessage={handleEditMessage}
+                    onDeleteMessage={handleDeleteMessage}
+                    onReact={handleReactToMessage}
+                    onReply={handleReplyMessage}
+                    replyingToMessageId={replyingTo?._id}
+                  />
+                ) : (
+                  <EmptyState icon={ChatIcon} title="No messages yet — say hi!" hint="Start the conversation with a quick intro." />
+                )}
               </div>
             )}
 
@@ -854,7 +882,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 />
                 <Input
                   variant="filled"
-                  bg="#E0E0E0"
+                  bg={messageInputBg}
                   placeholder="Enter a message.."
                   value={newMessage}
                   onChange={typingHandler}
@@ -873,10 +901,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         </>
       ) : (
         // to get socket.io on same page
-        <Box d="flex" alignItems="center" justifyContent="center" h="100%">
-          <Text fontSize="3xl" pb={3} fontFamily="Work sans">
-            Click on a user to start chatting
-          </Text>
+        <Box d="flex" alignItems="center" justifyContent="center" h="100%" w="100%">
+          <EmptyState icon={ChatIcon} title="Select a chat to start messaging" hint="Choose a conversation from the left panel to begin." />
         </Box>
       )}
     </>

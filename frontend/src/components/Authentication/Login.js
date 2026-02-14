@@ -7,6 +7,7 @@ import axios from "axios";
 import { useToast } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
 import { ChatState } from "../../Context/ChatProvider";
+import { appToast } from "../../utils/toast";
 
 const Login = () => {
   const [show, setShow] = useState(false);
@@ -23,6 +24,7 @@ const Login = () => {
     setLoading(true);
     if (!email || !password) {
       toast({
+        ...appToast,
         title: "Please Fill all the Feilds",
         status: "warning",
         duration: 5000,
@@ -47,6 +49,7 @@ const Login = () => {
       );
 
       toast({
+        ...appToast,
         title: "Login Successful",
         status: "success",
         duration: 5000,
@@ -59,6 +62,7 @@ const Login = () => {
       history.push("/chats");
     } catch (error) {
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: error.response.data.message,
         status: "error",

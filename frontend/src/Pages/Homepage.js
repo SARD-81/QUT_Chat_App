@@ -1,60 +1,63 @@
 import {
   Box,
-  Container,
   Tab,
   TabList,
   TabPanel,
   TabPanels,
   Tabs,
   Text,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import { useEffect } from "react";
 import { useHistory } from "react-router";
 import Login from "../components/Authentication/Login";
 import Signup from "../components/Authentication/Signup";
+import AppShell from "../components/layout/AppShell";
 
 function Homepage() {
   const history = useHistory();
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("userInfo"));
-
     if (user) history.push("/chats");
   }, [history]);
 
   return (
-    <Container maxW="xl" centerContent>
+    <AppShell maxW="2xl">
       <Box
-        d="flex"
-        justifyContent="center"
-        p={3}
-        bg="white"
-        w="100%"
-        m="40px 0 15px 0"
+        textAlign="center"
+        p={5}
+        bg={useColorModeValue("white", "gray.800")}
         borderRadius="lg"
         borderWidth="1px"
+        borderColor={useColorModeValue("gray.100", "whiteAlpha.200")}
+        mb={4}
+        shadow="sm"
       >
-        <Text fontSize="4xl" fontFamily="Work sans">
+        <Text fontSize={{ base: "3xl", md: "4xl" }} fontWeight="bold" letterSpacing="tight">
           Talk-A-Tive
         </Text>
+        <Text mt={1} fontSize="sm" color={useColorModeValue("gray.500", "gray.400")}>
+          Secure team messaging with a clean, fast workflow.
+        </Text>
       </Box>
-      <Box bg="white" w="100%" p={4} borderRadius="lg" borderWidth="1px">
-        <Tabs isFitted variant="soft-rounded">
+      <Box bg={useColorModeValue("white", "gray.800")} p={4} borderRadius="lg" borderWidth="1px" shadow="sm">
+        <Tabs isFitted variant="line" colorScheme="brand">
           <TabList mb="1em">
             <Tab>Login</Tab>
             <Tab>Sign Up</Tab>
           </TabList>
           <TabPanels>
-            <TabPanel>
+            <TabPanel px={1}>
               <Login />
             </TabPanel>
-            <TabPanel>
+            <TabPanel px={1}>
               <Signup />
             </TabPanel>
           </TabPanels>
         </Tabs>
       </Box>
-    </Container>
+    </AppShell>
   );
 }
 

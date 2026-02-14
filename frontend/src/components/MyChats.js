@@ -1,62 +1,53 @@
 import { AddIcon } from "@chakra-ui/icons";
-import { Box, Stack, Text } from "@chakra-ui/layout";
-import { useToast } from "@chakra-ui/toast";
+import { Badge, Box, Button, HStack, Stack, Text, useColorModeValue, useToast } from "@chakra-ui/react";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { getSender } from "../config/ChatLogics";
 import ChatLoading from "./ChatLoading";
 import GroupChatModal from "./miscellaneous/GroupChatModal";
-import { Button } from "@chakra-ui/react";
 import { ChatState } from "../Context/ChatProvider";
 import { cacheChats, loadCachedChats } from "../storage/chatCache";
+import { appToast } from "../utils/toast";
 
-const MyChats = ({ fetchAgain }) => {
+const MyChats = ({ fetchAgain, isDrawer = false, onSelectChat }) => {
   const [loggedUser, setLoggedUser] = useState();
-
-  const { selectedChat, setSelectedChat, user, chats, setChats } = ChatState();
-
+  const [loadingChats, setLoadingChats] = useState(true);
+  const { selectedChat, setSelectedChat, user, chats, setChats, notification } = ChatState();
   const toast = useToast();
 
   const fetchChats = async () => {
-    // console.log(user._id);
     try {
-      const config = {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-        },
-      };
-
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const { data } = await axios.get("/api/chat", config);
       setChats(data);
       cacheChats(data).catch(() => {});
     } catch (error) {
       if (!navigator.onLine) return;
-
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: "Failed to Load the chats",
         status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom-left",
       });
+    } finally {
+      setLoadingChats(false);
     }
   };
 
   useEffect(() => {
     setLoggedUser(JSON.parse(localStorage.getItem("userInfo")));
-
-    loadCachedChats()
-      .then((cachedChats) => {
-        if (cachedChats.length) {
-          setChats(cachedChats);
-        }
-      })
-      .catch(() => {});
-
+    loadCachedChats().then((cachedChats) => {
+      if (cachedChats.length) {
+        setChats(cachedChats);
+        setLoadingChats(false);
+      }
+    });
     fetchChats();
     // eslint-disable-next-line
   }, [fetchAgain]);
+
+  const chatItemBg = useColorModeValue("gray.100", "whiteAlpha.100");
+  const selectedChatBg = useColorModeValue("brand.500", "brand.400");
 
   const getLatestMessagePreview = (latestMessage) => {
     if (!latestMessage) return "";
@@ -71,104 +62,64 @@ const MyChats = ({ fetchAgain }) => {
     return "";
   };
 
-  const getLatestMessageReceiptLabel = (chat) => {
-    if (!chat?.latestMessage || !loggedUser) return "";
-
-    const isOutgoing =
-      chat.latestMessage.sender?._id?.toString() === loggedUser._id?.toString();
-
-    if (!isOutgoing) return "";
-
-    const readByCount = (chat.latestMessage.readBy || []).length;
-
-    if (readByCount === 0) return "sent";
-    if (readByCount === 1) return "delivered";
-
-    if (!chat.isGroupChat) return "seen";
-
-    const seenByOthers = Math.max(readByCount - 1, 0);
-    return `seen by ${seenByOthers}`;
-  };
-
   return (
     <Box
-      d={{ base: selectedChat ? "none" : "flex", md: "flex" }}
+      d={isDrawer ? "flex" : { base: selectedChat ? "none" : "flex", md: "flex" }}
       flexDir="column"
-      alignItems="center"
       p={3}
-      bg="white"
-      w={{ base: "100%", md: "31%" }}
+      bg={useColorModeValue("white", "gray.800")}
+      w={isDrawer ? "100%" : { base: "100%", md: "32%" }}
       borderRadius="lg"
       borderWidth="1px"
+      borderColor={useColorModeValue("gray.200", "whiteAlpha.200")}
+      shadow="sm"
+      h="100%"
     >
-      <Box
-        pb={3}
-        px={3}
-        fontSize={{ base: "28px", md: "30px" }}
-        fontFamily="Work sans"
-        d="flex"
-        w="100%"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        My Chats
+      <HStack pb={3} px={1} justifyContent="space-between" alignItems="center">
+        <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold">My Chats</Text>
         <GroupChatModal>
-          <Button
-            d="flex"
-            fontSize={{ base: "17px", md: "10px", lg: "17px" }}
-            rightIcon={<AddIcon />}
-          >
-            New Group Chat
-          </Button>
+          <Button size="sm" rightIcon={<AddIcon />} variant="outline">New Group</Button>
         </GroupChatModal>
-      </Box>
-      <Box
-        d="flex"
-        flexDir="column"
-        p={3}
-        bg="#F8F8F8"
-        w="100%"
-        h="100%"
-        borderRadius="lg"
-        overflowY="hidden"
-      >
-        {chats ? (
-          <Stack overflowY="scroll">
-            {chats.map((chat) => (
-              <Box
-                onClick={() => setSelectedChat(chat)}
-                cursor="pointer"
-                bg={selectedChat === chat ? "#38B2AC" : "#E8E8E8"}
-                color={selectedChat === chat ? "white" : "black"}
-                px={3}
-                py={2}
-                borderRadius="lg"
-                key={chat._id}
-              >
-                <Text>
-                  {!chat.isGroupChat
-                    ? getSender(loggedUser, chat.users)
-                    : chat.chatName}
-                </Text>
-                {chat.latestMessage && (
-                  <Text fontSize="xs">
-                    <b>{chat.latestMessage.sender.name} : </b>
-                    {getLatestMessagePreview(chat.latestMessage).length > 50
-                      ? getLatestMessagePreview(chat.latestMessage).substring(0, 51) + "..."
-                      : getLatestMessagePreview(chat.latestMessage)}
-                    {chat.latestMessage.editedAt && !chat.latestMessage.isDeleted
-                      ? " (edited)"
-                      : ""}
-                    {getLatestMessageReceiptLabel(chat)
-                      ? ` • ${getLatestMessageReceiptLabel(chat)}`
-                      : ""}
-                  </Text>
-                )}
-              </Box>
-            ))}
-          </Stack>
+      </HStack>
+      <Box p={2} bg={useColorModeValue("gray.50", "blackAlpha.300")} w="100%" h="100%" borderRadius="md" overflowY="auto">
+        {loadingChats ? (
+          <ChatLoading variant="chat-list" />
         ) : (
-          <ChatLoading />
+          <Stack spacing={2}>
+            {chats?.map((chat) => {
+              const unreadCount = notification.filter((n) => n.chat._id === chat._id).length;
+              return (
+                <Box
+                  key={chat._id}
+                  onClick={() => {
+                    setSelectedChat(chat);
+                    onSelectChat?.();
+                  }}
+                  cursor="pointer"
+                  bg={selectedChat === chat ? selectedChatBg : chatItemBg}
+                  color={selectedChat === chat ? "white" : undefined}
+                  px={3}
+                  py={2.5}
+                  borderRadius="md"
+                  transition="all 0.2s ease"
+                  _hover={{ transform: "translateY(-1px)", shadow: "md" }}
+                >
+                  <HStack justify="space-between" align="start">
+                    <Text fontWeight="semibold" noOfLines={1}>
+                      {!chat.isGroupChat ? getSender(loggedUser, chat.users) : chat.chatName}
+                    </Text>
+                    {unreadCount > 0 && <Badge colorScheme="red">{unreadCount}</Badge>}
+                  </HStack>
+                  {chat.latestMessage && (
+                    <Text fontSize="xs" mt={1} opacity={0.85} noOfLines={1}>
+                      <b>{chat.latestMessage.sender.name}: </b>
+                      {getLatestMessagePreview(chat.latestMessage)}
+                    </Text>
+                  )}
+                </Box>
+              );
+            })}
+          </Stack>
         )}
       </Box>
     </Box>

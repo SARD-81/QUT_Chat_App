@@ -9,6 +9,7 @@ const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const path = require("path");
 const cors = require("cors");
 const { expressCorsOptions, socketCorsOptions } = require("./config/cors");
+const Message = require("./models/messageModel");
 
 dotenv.config();
 connectDB();
@@ -66,6 +67,7 @@ app.set("io", io);
 io.on("connection", (socket) => {
   console.log("Connected to socket.io");
   socket.on("setup", (userData) => {
+    socket.userId = userData._id;
     socket.join(userData._id);
     socket.emit("connected");
   });
@@ -77,10 +79,17 @@ io.on("connection", (socket) => {
   socket.on("typing", (room) => socket.in(room).emit("typing"));
   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
 
-  socket.on("new message", (newMessageRecieved) => {
-    var chat = newMessageRecieved.chat;
+  socket.on("new message", (newMessageRecieved, acknowledgement) => {
+    const chat = newMessageRecieved.chat;
 
     if (!chat.users) return console.log("chat.users not defined");
+
+    if (typeof acknowledgement === "function") {
+      acknowledgement({
+        status: "sent",
+        messageId: newMessageRecieved._id,
+      });
+    }
 
     chat.users.forEach((user) => {
       if (user._id == newMessageRecieved.sender._id) return;
@@ -89,8 +98,34 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("message delivered", async ({ messageId, chatId }) => {
+    if (!socket.userId || !messageId || !chatId) return;
+
+    try {
+      const message = await Message.findOneAndUpdate(
+        { _id: messageId, chat: chatId },
+        { $addToSet: { deliveredTo: socket.userId } },
+        { new: true }
+      )
+        .select("_id sender chat")
+        .populate("sender", "_id");
+
+      if (!message || !message.sender?._id) return;
+
+      io.to(message.sender._id.toString()).emit("message_delivered", {
+        chatId,
+        messageId,
+        userId: socket.userId,
+      });
+    } catch (error) {
+      console.error("Failed to update delivery state", error);
+    }
+  });
+
   socket.off("setup", () => {
     console.log("USER DISCONNECTED");
-    socket.leave(userData._id);
+    if (socket.userId) {
+      socket.leave(socket.userId);
+    }
   });
 });

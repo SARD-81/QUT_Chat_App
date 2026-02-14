@@ -11,30 +11,56 @@ import { ChatState } from "../Context/ChatProvider";
 const ScrollableChat = ({ messages, latestOutgoingMessage }) => {
   const { user, selectedChat } = ChatState();
 
-  const getReadStatus = (message) => {
-    const readByCount = (message.readBy || []).length;
-    const participantCount = (selectedChat?.users || []).length;
+  const getMessageStatus = (message) => {
+    if (message.sender._id !== user._id) return null;
 
-    if (message.sender._id !== user._id) return "";
+    const readByOthersCount = (message.readBy || []).filter(
+      (readUserId) => readUserId.toString() !== user._id.toString()
+    ).length;
+    const deliveredToCount = (message.deliveredTo || []).filter(
+      (deliveredUserId) => deliveredUserId.toString() !== user._id.toString()
+    ).length;
 
-    if (readByCount === 0) return "sent";
-    if (readByCount === 1) return "delivered";
+    if (readByOthersCount > 0) {
+      if (!selectedChat?.isGroupChat) {
+        return { icon: "👁", label: "seen" };
+      }
 
-    if (!selectedChat?.isGroupChat) {
-      return "seen";
+      return {
+        icon: "👁",
+        label: readByOthersCount >= (selectedChat?.users?.length || 1) - 1
+          ? "seen by everyone"
+          : `seen by ${readByOthersCount}`,
+      };
     }
 
-    if (participantCount > 1 && readByCount >= participantCount) {
-      return "seen by everyone";
+    if (deliveredToCount > 0) {
+      if (!selectedChat?.isGroupChat) {
+        return { icon: "✓✓", label: "delivered" };
+      }
+
+      return {
+        icon: "✓✓",
+        label: deliveredToCount >= (selectedChat?.users?.length || 1) - 1
+          ? "delivered to everyone"
+          : `delivered to ${deliveredToCount}`,
+      };
     }
 
-    return `seen by ${Math.max(readByCount - 1, 0)}`;
+    if (message.socketStatus === "sending") {
+      return { icon: "…", label: "sending" };
+    }
+
+    return { icon: "✓", label: "sent" };
   };
 
   return (
     <>
       {messages &&
-        messages.map((m, i) => (
+        messages.map((m, i) => {
+          const messageStatus = getMessageStatus(m);
+
+          return (
           <div style={{ display: "flex", flexDirection: "column" }} key={m._id}>
             <div style={{ display: "flex" }}>
               {(isSameSender(messages, m, i, user._id) ||
@@ -65,7 +91,7 @@ const ScrollableChat = ({ messages, latestOutgoingMessage }) => {
                 {m.content}
               </span>
             </div>
-            {latestOutgoingMessage && latestOutgoingMessage._id === m._id && (
+            {latestOutgoingMessage && latestOutgoingMessage._id === m._id && messageStatus && (
               <span
                 style={{
                   alignSelf: "flex-end",
@@ -75,11 +101,12 @@ const ScrollableChat = ({ messages, latestOutgoingMessage }) => {
                   textTransform: "capitalize",
                 }}
               >
-                {getReadStatus(m)}
+                {`${messageStatus.icon} ${messageStatus.label}`}
               </span>
             )}
           </div>
-        ))}
+          );
+        })}
     </>
   );
 };

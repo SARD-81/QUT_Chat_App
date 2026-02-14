@@ -74,6 +74,18 @@ Start the Client
 ![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/add%20rem.PNG)
 ### View Other user Profile
 ![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/profile.PNG)
+
+## Security headers (Helmet)
+
+The Express server now uses [Helmet](https://helmetjs.github.io/) for baseline HTTP security headers:
+
+- `app.use(helmet())` is registered early in the middleware chain in `backend/server.js`;
+- this is a production-safe default for React SPA hosting and API routes;
+- Helmet's default CSP is enabled. If you later load scripts/styles/fonts/images from external domains, extend CSP directives explicitly rather than disabling CSP globally.
+
+### CSP caveat for SPA integrations
+If you add third-party assets (analytics, CDNs, fonts, widgets), update Helmet config with `helmet.contentSecurityPolicy` directives to allow only the exact sources your app needs.
+
 ## Made By
 
 - [@Piyush-eon](https://github.com/piyush-eon)

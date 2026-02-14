@@ -4,7 +4,7 @@ import { Box, Text } from "@chakra-ui/layout";
 import "./styles.css";
 import { IconButton, Spinner, useToast } from "@chakra-ui/react";
 import { getSender, getSenderFull } from "../config/ChatLogics";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { ArrowBackIcon } from "@chakra-ui/icons";
 import ProfileModal from "./miscellaneous/ProfileModal";
@@ -42,8 +42,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       preserveAspectRatio: "xMidYMid slice",
     },
   };
-  const { selectedChat, setSelectedChat, user, notification, setNotification } =
-    ChatState();
+  const {
+    selectedChat,
+    setSelectedChat,
+    user,
+    notification,
+    setNotification,
+    setChats,
+  } = ChatState();
 
   const scrollToBottom = () => {
     const container = chatContainerRef.current;
@@ -134,6 +140,48 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   }, [selectedChat, hasMoreMessages, oldestMessageId, loadingOlder, user.token, toast]);
 
+
+  const markChatAsRead = useCallback(async () => {
+    if (!selectedChat || !messages.length) return;
+
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+
+      const { data } = await axios.post(
+        `/api/message/chat/${selectedChat._id}/read`,
+        {},
+        config
+      );
+
+      if (!data?.messageIds?.length) return;
+
+      const readMessageSet = new Set(data.messageIds.map((messageId) => messageId.toString()));
+
+      setMessages((prevMessages) =>
+        prevMessages.map((message) => {
+          if (!readMessageSet.has(message._id.toString())) return message;
+
+          const alreadyRead = (message.readBy || []).some(
+            (readUserId) => readUserId.toString() === user._id.toString()
+          );
+
+          if (alreadyRead) return message;
+
+          return {
+            ...message,
+            readBy: [...(message.readBy || []), user._id],
+          };
+        })
+      );
+    } catch (error) {
+      // Silent fail: read receipts should not block chat usage
+    }
+  }, [selectedChat, messages.length, user.token, user._id]);
+
   const sendMessage = async (event) => {
     if (event.key === "Enter" && newMessage) {
       socket.emit("stop typing", selectedChat._id);
@@ -193,6 +241,61 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   }, [messages]);
 
   useEffect(() => {
+    markChatAsRead();
+  }, [markChatAsRead]);
+
+  useEffect(() => {
+    const onMessageRead = ({ chatId, messageId, userId }) => {
+      if (!selectedChatCompare || selectedChatCompare._id !== chatId) return;
+
+      setMessages((prevMessages) =>
+        prevMessages.map((message) => {
+          if (message._id !== messageId) return message;
+
+          const alreadyRead = (message.readBy || []).some(
+            (readUserId) => readUserId.toString() === userId.toString()
+          );
+
+          if (alreadyRead) return message;
+
+          return {
+            ...message,
+            readBy: [...(message.readBy || []), userId],
+          };
+        })
+      );
+
+      if (!setChats) return;
+
+      setChats((prevChats) =>
+        (prevChats || []).map((chat) => {
+          if (!chat.latestMessage || chat.latestMessage._id !== messageId) return chat;
+
+          const alreadyRead = (chat.latestMessage.readBy || []).some(
+            (readUserId) => readUserId.toString() === userId.toString()
+          );
+
+          if (alreadyRead) return chat;
+
+          return {
+            ...chat,
+            latestMessage: {
+              ...chat.latestMessage,
+              readBy: [...(chat.latestMessage.readBy || []), userId],
+            },
+          };
+        })
+      );
+    };
+
+    socket.on("message_read", onMessageRead);
+
+    return () => {
+      socket.off("message_read", onMessageRead);
+    };
+  }, [setChats]);
+
+  useEffect(() => {
     const onMessageReceived = (newMessageRecieved) => {
       if (
         !selectedChatCompare || // if chat is not selected or doesn't match current chat
@@ -241,6 +344,18 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       loadOlderMessages();
     }
   };
+
+  const latestOutgoingMessage = useMemo(() => {
+    if (!messages.length || !selectedChat) return null;
+
+    const ownMessages = messages.filter(
+      (message) => message.sender?._id?.toString() === user._id.toString()
+    );
+
+    if (!ownMessages.length) return null;
+
+    return ownMessages[ownMessages.length - 1];
+  }, [messages, selectedChat, user._id]);
 
   return (
     <>
@@ -308,7 +423,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 {loadingOlder && (
                   <Spinner size="sm" alignSelf="center" mb={2} mt={1} />
                 )}
-                <ScrollableChat messages={messages} />
+                <ScrollableChat
+                  messages={messages}
+                  latestOutgoingMessage={latestOutgoingMessage}
+                />
               </div>
             )}
 

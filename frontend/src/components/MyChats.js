@@ -8,6 +8,7 @@ import ChatLoading from "./ChatLoading";
 import GroupChatModal from "./miscellaneous/GroupChatModal";
 import { Button } from "@chakra-ui/react";
 import { ChatState } from "../Context/ChatProvider";
+import { cacheChats, loadCachedChats } from "../storage/chatCache";
 
 const MyChats = ({ fetchAgain }) => {
   const [loggedUser, setLoggedUser] = useState();
@@ -27,7 +28,10 @@ const MyChats = ({ fetchAgain }) => {
 
       const { data } = await axios.get("/api/chat", config);
       setChats(data);
+      cacheChats(data).catch(() => {});
     } catch (error) {
+      if (!navigator.onLine) return;
+
       toast({
         title: "Error Occured!",
         description: "Failed to Load the chats",
@@ -41,6 +45,15 @@ const MyChats = ({ fetchAgain }) => {
 
   useEffect(() => {
     setLoggedUser(JSON.parse(localStorage.getItem("userInfo")));
+
+    loadCachedChats()
+      .then((cachedChats) => {
+        if (cachedChats.length) {
+          setChats(cachedChats);
+        }
+      })
+      .catch(() => {});
+
     fetchChats();
     // eslint-disable-next-line
   }, [fetchAgain]);

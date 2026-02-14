@@ -17,6 +17,7 @@ import UpdateGroupChatModal from "./miscellaneous/UpdateGroupChatModal";
 import { ChatState } from "../Context/ChatProvider";
 import { uploadFileToCloudinary, validateAttachmentFile } from "../config/uploadConfig";
 import GifPicker from "./GifPicker";
+import { cacheMessages, loadCachedMessages } from "../storage/chatCache";
 const ENDPOINT = "http://localhost:5000"; // "https://talk-a-tive.herokuapp.com"; -> After deployment
 var socket, selectedChatCompare;
 
@@ -68,6 +69,16 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const fetchMessages = useCallback(async () => {
     if (!selectedChat) return;
 
+    const selectedChatId = selectedChat._id;
+
+    loadCachedMessages(selectedChatId)
+      .then((cachedMessages) => {
+        if (!cachedMessages.length) return;
+        setMessages(cachedMessages);
+        shouldScrollToBottomRef.current = true;
+      })
+      .catch(() => {});
+
     try {
       const config = {
         headers: {
@@ -80,7 +91,12 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
       setLoading(true);
 
-      const { data } = await axios.get(`/api/message/${selectedChat._id}`, config);
+      const { data } = await axios.get(`/api/message/${selectedChatId}`, config);
+
+      if (selectedChatCompare?._id && selectedChatCompare._id !== selectedChatId) {
+        setLoading(false);
+        return;
+      }
 
       setMessages(data.messages || []);
       setHasMoreMessages(Boolean(data.hasMore));
@@ -88,9 +104,13 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       shouldScrollToBottomRef.current = true;
       setLoading(false);
 
-      socket.emit("join chat", selectedChat._id);
+      cacheMessages(selectedChatId, data.messages || []).catch(() => {});
+
+      socket.emit("join chat", selectedChatId);
     } catch (error) {
       setLoading(false);
+      if (!navigator.onLine) return;
+
       toast({
         title: "Error Occured!",
         description: "Failed to Load the Messages",
@@ -670,6 +690,11 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
     return ownMessages[ownMessages.length - 1];
   }, [messages, selectedChat, user._id]);
+
+  useEffect(() => {
+    if (!selectedChat?._id) return;
+    cacheMessages(selectedChat._id, messages).catch(() => {});
+  }, [messages, selectedChat]);
 
   return (
     <>

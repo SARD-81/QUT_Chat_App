@@ -75,6 +75,20 @@ Start the Client
 ### View Other user Profile
 ![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/profile.PNG)
 
+
+## Rate limiting
+
+To reduce abuse on authentication/user lookup endpoints, the backend now rate-limits:
+- `POST /api/user` (register)
+- `POST /api/user/login`
+- `GET /api/user?search=`
+
+When the limit is exceeded, the API responds with HTTP `429` and a JSON error message.
+
+Configure the limiter in your environment:
+- `RATE_LIMIT_WINDOW_MS` - window duration in milliseconds (default: `900000`, i.e. 15 minutes)
+- `RATE_LIMIT_MAX` - max requests per IP within the window for the protected routes (default: `20`)
+
 ## Security headers (Helmet)
 
 The Express server now uses [Helmet](https://helmetjs.github.io/) for baseline HTTP security headers:

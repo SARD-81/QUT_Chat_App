@@ -127,3 +127,27 @@ A critical fix was applied to `backend/models/userModel.js`:
 ### Migration considerations
 - Existing user records keep their current email casing until updated. New writes normalize email to lowercase.
 - If you have legacy duplicate emails that differ only by case/whitespace, clean them before relying on the unique email index in production.
+
+## UI Modernization
+
+The frontend now includes an enterprise-style visual refresh without changing app architecture or API behavior.
+
+### What changed
+- Added a centralized Chakra theme at `frontend/src/theme/index.js` with design tokens for typography, radii, shadows, colors, global styles, and key component overrides.
+- Wired theme + `ColorModeScript` in `frontend/src/index.js`.
+- Added reusable UI primitives:
+  - `ColorModeToggle` for light/dark mode.
+  - `EmptyState` for consistent no-data messaging.
+  - `AppShell` for page-level spacing and surface consistency.
+- Polished homepage and chat surfaces, spacing, and panel hierarchy.
+- Improved loading UX with skeleton placeholders for chats, messages, and search results.
+- Improved message bubbles, hover/focus affordances, and chat list density.
+- Added mobile-friendly chat list access via Drawer and keyboard shortcut support (`Ctrl/Cmd + K` for search; `Esc` clears active reply draft).
+
+### Adjusting design tokens
+Update `frontend/src/theme/index.js` to tune:
+- `colors.brand` for action/accent colors.
+- `radii`, `shadows`, and `fonts` for visual tone.
+- `components` overrides (Button/Input/Drawer/Modal/Menu/Tabs/Badge).
+
+Keep component-level styles token-driven (`useColorModeValue` + theme values) for consistency.

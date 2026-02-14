@@ -7,6 +7,7 @@ import axios from "axios";
 import { useState } from "react";
 import { useHistory } from "react-router";
 import { uploadFileToCloudinary, validateAttachmentFile } from "../../config/uploadConfig";
+import { appToast } from "../../utils/toast";
 
 const Signup = () => {
   const [show, setShow] = useState(false);
@@ -25,6 +26,7 @@ const Signup = () => {
     setPicLoading(true);
     if (!name || !email || !password || !confirmpassword) {
       toast({
+        ...appToast,
         title: "Please Fill all the Feilds",
         status: "warning",
         duration: 5000,
@@ -36,6 +38,7 @@ const Signup = () => {
     }
     if (password !== confirmpassword) {
       toast({
+        ...appToast,
         title: "Passwords Do Not Match",
         status: "warning",
         duration: 5000,
@@ -63,6 +66,7 @@ const Signup = () => {
       );
       console.log(data);
       toast({
+        ...appToast,
         title: "Registration Successful",
         status: "success",
         duration: 5000,
@@ -74,6 +78,7 @@ const Signup = () => {
       history.push("/chats");
     } catch (error) {
       toast({
+        ...appToast,
         title: "Error Occured!",
         description: error.response.data.message,
         status: "error",
@@ -92,6 +97,7 @@ const Signup = () => {
 
     if (validationError) {
       toast({
+        ...appToast,
         title: validationError,
         status: "warning",
         duration: 5000,
@@ -107,6 +113,7 @@ const Signup = () => {
       setPic(uploaded.url);
     } catch (err) {
       toast({
+        ...appToast,
         title: "Image upload failed",
         description: err.response?.data?.message || "Please try again",
         status: "error",

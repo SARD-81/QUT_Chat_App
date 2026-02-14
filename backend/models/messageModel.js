@@ -4,9 +4,13 @@ const messageSchema = mongoose.Schema(
   {
     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     content: { type: String, trim: true },
+    originalContent: { type: String, trim: true },
     chat: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" },
     deliveredTo: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    editedAt: { type: Date, default: null },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

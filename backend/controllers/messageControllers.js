@@ -176,4 +176,132 @@ const markChatMessagesAsRead = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { allMessages, sendMessage, markChatMessagesAsRead };
+
+
+
+const emitMessageToChatRoom = (io, chatId, eventName, payload) => {
+  if (!io || !chatId) return;
+
+  io.to(chatId.toString()).emit(eventName, payload);
+};
+
+//@description     Edit existing message content
+//@route           PUT /api/Message/:messageId
+//@access          Protected
+const editMessage = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+  const { content } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(messageId)) {
+    res.status(400);
+    throw new Error("Invalid message id");
+  }
+
+  const trimmedContent = typeof content === "string" ? content.trim() : "";
+
+  if (!trimmedContent) {
+    res.status(400);
+    throw new Error("Message content is required");
+  }
+
+  const message = await Message.findById(messageId).populate("chat", "users");
+
+  if (!message) {
+    res.status(404);
+    throw new Error("Message not found");
+  }
+
+  if (message.sender.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error("Not authorized to edit this message");
+  }
+
+  if (message.isDeleted) {
+    res.status(400);
+    throw new Error("Deleted messages cannot be edited");
+  }
+
+  if (message.content === trimmedContent) {
+    return res.json(message);
+  }
+
+  if (!message.originalContent) {
+    message.originalContent = message.content;
+  }
+
+  message.content = trimmedContent;
+  message.editedAt = new Date();
+
+  let updatedMessage = await message.save();
+  updatedMessage = await updatedMessage.populate("sender", "name pic email");
+  updatedMessage = await updatedMessage.populate("chat");
+
+  await Chat.findByIdAndUpdate(updatedMessage.chat._id, { latestMessage: updatedMessage });
+
+  const io = req.app.get("io");
+  emitMessageToChatRoom(io, updatedMessage.chat._id, "message_updated", updatedMessage);
+
+  res.json(updatedMessage);
+});
+
+//@description     Soft delete message
+//@route           DELETE /api/Message/:messageId
+//@access          Protected
+const deleteMessage = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(messageId)) {
+    res.status(400);
+    throw new Error("Invalid message id");
+  }
+
+  const message = await Message.findById(messageId).populate("chat", "users");
+
+  if (!message) {
+    res.status(404);
+    throw new Error("Message not found");
+  }
+
+  if (message.sender.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error("Not authorized to delete this message");
+  }
+
+  if (message.isDeleted) {
+    return res.json(message);
+  }
+
+  if (!message.originalContent) {
+    message.originalContent = message.content;
+  }
+
+  message.content = "This message was deleted";
+  message.isDeleted = true;
+  message.deletedAt = new Date();
+
+  let deletedMessage = await message.save();
+  deletedMessage = await deletedMessage.populate("sender", "name pic email");
+  deletedMessage = await deletedMessage.populate("chat");
+
+  await Chat.findByIdAndUpdate(deletedMessage.chat._id, { latestMessage: deletedMessage });
+
+  const io = req.app.get("io");
+  emitMessageToChatRoom(io, deletedMessage.chat._id, "message_deleted", {
+    _id: deletedMessage._id,
+    chatId: deletedMessage.chat._id,
+    deletedAt: deletedMessage.deletedAt,
+    isDeleted: deletedMessage.isDeleted,
+    content: deletedMessage.content,
+    sender: deletedMessage.sender,
+  });
+
+  res.json(deletedMessage);
+});
+
+module.exports = {
+  allMessages,
+  sendMessage,
+  markChatMessagesAsRead,
+  editMessage,
+  deleteMessage,
+};

@@ -182,6 +182,87 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   }, [selectedChat, messages.length, user.token, user._id]);
 
+  const updateMessageInState = useCallback((updatedMessage) => {
+    if (!updatedMessage?._id) return;
+
+    setMessages((prevMessages) =>
+      prevMessages.map((message) =>
+        message._id === updatedMessage._id ? { ...message, ...updatedMessage } : message
+      )
+    );
+
+    if (!setChats || !selectedChatCompare) return;
+
+    setChats((prevChats) =>
+      (prevChats || []).map((chat) => {
+        if (chat._id !== selectedChatCompare._id || !chat.latestMessage) return chat;
+        if (chat.latestMessage._id !== updatedMessage._id) return chat;
+
+        return {
+          ...chat,
+          latestMessage: { ...chat.latestMessage, ...updatedMessage },
+        };
+      })
+    );
+  }, [setChats]);
+
+  const handleEditMessage = async (message) => {
+    const nextContent = window.prompt("Edit message", message.content);
+
+    if (nextContent === null) return;
+
+    const trimmed = nextContent.trim();
+
+    if (!trimmed || trimmed === message.content) return;
+
+    try {
+      const config = {
+        headers: {
+          "Content-type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+
+      const { data } = await axios.put(`/api/message/${message._id}`, { content: trimmed }, config);
+      updateMessageInState(data);
+    } catch (error) {
+      toast({
+        title: "Error Occured!",
+        description: "Failed to edit the message",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+    }
+  };
+
+  const handleDeleteMessage = async (message) => {
+    const confirmed = window.confirm("Delete this message?");
+
+    if (!confirmed) return;
+
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+
+      const { data } = await axios.delete(`/api/message/${message._id}`, config);
+      updateMessageInState(data);
+    } catch (error) {
+      toast({
+        title: "Error Occured!",
+        description: "Failed to delete the message",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+    }
+  };
+
   const sendMessage = async (event) => {
     if (event.key === "Enter" && newMessage) {
       socket.emit("stop typing", selectedChat._id);
@@ -361,6 +442,38 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   }, [setChats]);
 
   useEffect(() => {
+    const onMessageUpdated = (updatedMessage) => {
+      const chatId =
+        typeof updatedMessage.chat === "string"
+          ? updatedMessage.chat
+          : updatedMessage.chat?._id;
+
+      if (!selectedChatCompare || selectedChatCompare._id !== chatId?.toString()) return;
+
+      updateMessageInState(updatedMessage);
+    };
+
+    const onMessageDeleted = (deletedMessage) => {
+      if (!selectedChatCompare || selectedChatCompare._id !== deletedMessage.chatId?.toString()) return;
+
+      updateMessageInState({
+        _id: deletedMessage._id,
+        content: deletedMessage.content,
+        isDeleted: deletedMessage.isDeleted,
+        deletedAt: deletedMessage.deletedAt,
+      });
+    };
+
+    socket.on("message_updated", onMessageUpdated);
+    socket.on("message_deleted", onMessageDeleted);
+
+    return () => {
+      socket.off("message_updated", onMessageUpdated);
+      socket.off("message_deleted", onMessageDeleted);
+    };
+  }, [updateMessageInState]);
+
+  useEffect(() => {
     const onMessageReceived = (newMessageRecieved) => {
       socket.emit("message delivered", {
         messageId: newMessageRecieved._id,
@@ -496,6 +609,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 <ScrollableChat
                   messages={messages}
                   latestOutgoingMessage={latestOutgoingMessage}
+                  onEditMessage={handleEditMessage}
+                  onDeleteMessage={handleDeleteMessage}
                 />
               </div>
             )}

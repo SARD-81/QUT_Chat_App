@@ -88,6 +88,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     sender: req.user._id,
     content: content,
     chat: chatId,
+    readBy: [req.user._id],
   };
 
   try {
@@ -109,4 +110,69 @@ const sendMessage = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { allMessages, sendMessage };
+//@description     Mark chat messages as read by current user
+//@route           POST /api/Message/chat/:chatId/read
+//@access          Protected
+const markChatMessagesAsRead = asyncHandler(async (req, res) => {
+  const { chatId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(chatId)) {
+    res.status(400);
+    throw new Error("Invalid chat id");
+  }
+
+  const chat = await Chat.findById(chatId).select("users latestMessage");
+
+  if (!chat) {
+    res.status(404);
+    throw new Error("Chat not found");
+  }
+
+  const isParticipant = chat.users.some(
+    (chatUserId) => chatUserId.toString() === req.user._id.toString()
+  );
+
+  if (!isParticipant) {
+    res.status(403);
+    throw new Error("Not authorized to access this chat");
+  }
+
+  const updatedMessages = await Message.find({
+    chat: chatId,
+    readBy: { $ne: req.user._id },
+  }).select("_id");
+
+  if (!updatedMessages.length) {
+    return res.json({ updatedCount: 0, messageIds: [] });
+  }
+
+  const updatedMessageIds = updatedMessages.map((message) => message._id);
+
+  await Message.updateMany(
+    { _id: { $in: updatedMessageIds } },
+    { $addToSet: { readBy: req.user._id } }
+  );
+
+  const io = req.app.get("io");
+
+  if (io) {
+    chat.users.forEach((chatUserId) => {
+      if (chatUserId.toString() === req.user._id.toString()) return;
+
+      updatedMessageIds.forEach((messageId) => {
+        io.to(chatUserId.toString()).emit("message_read", {
+          chatId,
+          messageId,
+          userId: req.user._id.toString(),
+        });
+      });
+    });
+  }
+
+  res.json({
+    updatedCount: updatedMessageIds.length,
+    messageIds: updatedMessageIds,
+  });
+});
+
+module.exports = { allMessages, sendMessage, markChatMessagesAsRead };

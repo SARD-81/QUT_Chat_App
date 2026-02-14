@@ -45,6 +45,25 @@ const MyChats = ({ fetchAgain }) => {
     // eslint-disable-next-line
   }, [fetchAgain]);
 
+  const getLatestMessageReceiptLabel = (chat) => {
+    if (!chat?.latestMessage || !loggedUser) return "";
+
+    const isOutgoing =
+      chat.latestMessage.sender?._id?.toString() === loggedUser._id?.toString();
+
+    if (!isOutgoing) return "";
+
+    const readByCount = (chat.latestMessage.readBy || []).length;
+
+    if (readByCount === 0) return "sent";
+    if (readByCount === 1) return "delivered";
+
+    if (!chat.isGroupChat) return "seen";
+
+    const seenByOthers = Math.max(readByCount - 1, 0);
+    return `seen by ${seenByOthers}`;
+  };
+
   return (
     <Box
       d={{ base: selectedChat ? "none" : "flex", md: "flex" }}
@@ -111,6 +130,9 @@ const MyChats = ({ fetchAgain }) => {
                     {chat.latestMessage.content.length > 50
                       ? chat.latestMessage.content.substring(0, 51) + "..."
                       : chat.latestMessage.content}
+                    {getLatestMessageReceiptLabel(chat)
+                      ? ` • ${getLatestMessageReceiptLabel(chat)}`
+                      : ""}
                   </Text>
                 )}
               </Box>

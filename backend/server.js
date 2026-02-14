@@ -61,6 +61,8 @@ const io = require("socket.io")(server, {
   cors: socketCorsOptions,
 });
 
+app.set("io", io);
+
 io.on("connection", (socket) => {
   console.log("Connected to socket.io");
   socket.on("setup", (userData) => {

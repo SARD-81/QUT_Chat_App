@@ -79,3 +79,15 @@ Start the Client
 - [@Piyush-eon](https://github.com/piyush-eon)
 
   
+
+## Backend user model fix (data integrity)
+
+A critical fix was applied to `backend/models/userModel.js`:
+- corrected schema field type declarations to use `String` (constructor) instead of the string literal type;
+- corrected `timestamps` option (previous typo prevented `createdAt`/`updatedAt` generation);
+- fixed password hashing middleware to hash only when `password` is modified;
+- enforced email normalization (`lowercase` + `trim`) and retained uniqueness.
+
+### Migration considerations
+- Existing user records keep their current email casing until updated. New writes normalize email to lowercase.
+- If you have legacy duplicate emails that differ only by case/whitespace, clean them before relying on the unique email index in production.

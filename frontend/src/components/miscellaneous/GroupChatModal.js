@@ -11,43 +11,28 @@ import {
   FormControl,
   Input,
   useToast,
-  Box,
 } from "@chakra-ui/react";
 import axios from "axios";
 import { useState } from "react";
 import { ChatState } from "../../Context/ChatProvider";
-import UserBadgeItem from "../userAvatar/UserBadgeItem";
-import UserListItem from "../userAvatar/UserListItem";
+import ChipsInput from "../common/ChipsInput";
 
 const GroupChatModal = ({ children }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [groupChatName, setGroupChatName] = useState();
   const [selectedUsers, setSelectedUsers] = useState([]);
-  const [search, setSearch] = useState("");
   const [searchResult, setSearchResult] = useState([]);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
   const { user, chats, setChats } = ChatState();
 
-  const handleGroup = (userToAdd) => {
-    if (selectedUsers.includes(userToAdd)) {
-      toast({
-        title: "User already added",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "top",
-      });
-      return;
-    }
-
-    setSelectedUsers([...selectedUsers, userToAdd]);
-  };
+  const getUserLabel = (targetUser) => `${targetUser.name} (${targetUser.email})`;
 
   const handleSearch = async (query) => {
-    setSearch(query);
     if (!query) {
+      setSearchResult([]);
+      setLoading(false);
       return;
     }
 
@@ -58,7 +43,7 @@ const GroupChatModal = ({ children }) => {
           Authorization: `Bearer ${user.token}`,
         },
       };
-      const { data } = await axios.get(`/api/user?search=${search}`, config);
+      const { data } = await axios.get(`/api/user?search=${query}`, config);
       console.log(data);
       setLoading(false);
       setSearchResult(data);
@@ -71,11 +56,40 @@ const GroupChatModal = ({ children }) => {
         isClosable: true,
         position: "bottom-left",
       });
+      setLoading(false);
     }
   };
 
-  const handleDelete = (delUser) => {
-    setSelectedUsers(selectedUsers.filter((sel) => sel._id !== delUser._id));
+  const handleSelectedUserLabelsChange = (nextLabels) => {
+    const selectedUsersByLabel = new Map(
+      selectedUsers.map((selectedUser) => [getUserLabel(selectedUser), selectedUser])
+    );
+    const searchUsersByLabel = new Map(
+      searchResult.map((searchUser) => [getUserLabel(searchUser), searchUser])
+    );
+
+    const nextUsers = [];
+
+    nextLabels.forEach((label) => {
+      const matchedUser = selectedUsersByLabel.get(label) || searchUsersByLabel.get(label);
+
+      if (!matchedUser) {
+        toast({
+          title: "Please choose a valid user",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+          position: "top",
+        });
+        return;
+      }
+
+      if (!nextUsers.some((nextUser) => nextUser._id === matchedUser._id)) {
+        nextUsers.push(matchedUser);
+      }
+    });
+
+    setSelectedUsers(nextUsers);
   };
 
   const handleSubmit = async () => {
@@ -122,6 +136,7 @@ const GroupChatModal = ({ children }) => {
         isClosable: true,
         position: "bottom",
       });
+      setLoading(false);
     }
   };
 
@@ -150,35 +165,15 @@ const GroupChatModal = ({ children }) => {
               />
             </FormControl>
             <FormControl>
-              <Input
+              <ChipsInput
+                value={selectedUsers.map((selectedUser) => getUserLabel(selectedUser))}
+                onChange={handleSelectedUserLabelsChange}
                 placeholder="Add Users eg: John, Piyush, Jane"
-                mb={1}
-                onChange={(e) => handleSearch(e.target.value)}
+                suggestions={searchResult.map((searchUser) => getUserLabel(searchUser))}
+                onQueryChange={handleSearch}
               />
             </FormControl>
-            <Box w="100%" d="flex" flexWrap="wrap">
-              {selectedUsers.map((u) => (
-                <UserBadgeItem
-                  key={u._id}
-                  user={u}
-                  handleFunction={() => handleDelete(u)}
-                />
-              ))}
-            </Box>
-            {loading ? (
-              // <ChatLoading />
-              <div>Loading...</div>
-            ) : (
-              searchResult
-                ?.slice(0, 4)
-                .map((user) => (
-                  <UserListItem
-                    key={user._id}
-                    user={user}
-                    handleFunction={() => handleGroup(user)}
-                  />
-                ))
-            )}
+            {loading ? <div>Loading...</div> : null}
           </ModalBody>
           <ModalFooter>
             <Button onClick={handleSubmit} colorScheme="blue">

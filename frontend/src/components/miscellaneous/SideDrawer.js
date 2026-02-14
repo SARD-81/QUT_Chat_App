@@ -22,12 +22,10 @@ import { Avatar } from "@chakra-ui/avatar";
 import { useHistory } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { useColorModeValue, useToast } from "@chakra-ui/react";
+import { Badge, useColorModeValue, useToast } from "@chakra-ui/react";
 import ChatLoading from "../ChatLoading";
 import { Spinner } from "@chakra-ui/spinner";
 import ProfileModal from "./ProfileModal";
-import NotificationBadge from "react-notification-badge";
-import { Effect } from "react-notification-badge";
 import { getSender } from "../../config/ChatLogics";
 import UserListItem from "../userAvatar/UserListItem";
 import { ChatState } from "../../Context/ChatProvider";
@@ -147,8 +145,24 @@ function SideDrawer({ onOpenChatsDrawer }) {
         <HStack spacing={1}>
           <ColorModeToggle />
           <Menu>
-            <MenuButton p={1} aria-label="Open notifications">
-              <NotificationBadge count={notification.length} effect={Effect.SCALE} />
+            <MenuButton p={1} position="relative" aria-label="Open notifications">
+              {notification.length > 0 && (
+                <Badge
+                  position="absolute"
+                  top="0"
+                  right="0"
+                  borderRadius="full"
+                  colorScheme="red"
+                  fontSize="0.65rem"
+                  minW="18px"
+                  h="18px"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  {notification.length}
+                </Badge>
+              )}
               <BellIcon fontSize="2xl" m={1} />
             </MenuButton>
             <MenuList>

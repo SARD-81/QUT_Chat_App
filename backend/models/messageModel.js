@@ -11,6 +11,13 @@ const messageSchema = mongoose.Schema(
     editedAt: { type: Date, default: null },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
+    reactions: [
+      {
+        emoji: { type: String, required: true, trim: true },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      },
+    ],
+    replyTo: { type: mongoose.Schema.Types.ObjectId, ref: "Message", default: null },
   },
   { timestamps: true }
 );

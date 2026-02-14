@@ -143,11 +143,23 @@ const ScrollableChat = ({
                         Replying to {m.replyTo?.sender?.name || "message"}
                       </Text>
                       <Text fontSize="sm" color="gray.700" noOfLines={2}>
-                        {m.replyTo?.isDeleted ? "This message was deleted" : m.replyTo?.content}
+                        {m.replyTo?.isDeleted ? "This message was deleted" : m.replyTo?.type === "gif" ? "GIF" : m.replyTo?.content}
                       </Text>
                     </Box>
                   )}
-                  {m.content && <Text>{m.content}</Text>}
+                  {m.type === "gif" && m.content ? (
+                    <Link href={m.content} isExternal>
+                      <Image
+                        src={m.content}
+                        alt="GIF"
+                        maxH="240px"
+                        borderRadius="md"
+                        objectFit="cover"
+                      />
+                    </Link>
+                  ) : (
+                    m.content && <Text>{m.content}</Text>
+                  )}
                   {m.attachment?.url && (
                     <Box mt={2}>
                       {m.attachment.mimeType?.startsWith("image/") ? (

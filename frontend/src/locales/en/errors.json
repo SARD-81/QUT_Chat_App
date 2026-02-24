@@ -1,0 +1,11 @@
+{
+  "UNKNOWN": "Something went wrong. Please try again.",
+  "AUTH_TOKEN_FAILED": "Not authorized, token failed",
+  "AUTH_NO_TOKEN": "Not authorized, no token",
+  "MSG_INVALID_ID": "Invalid message id",
+  "MSG_NOT_FOUND": "Message not found",
+  "MSG_NOT_AUTHORIZED": "Not authorized to access this message",
+  "CHAT_NOT_FOUND": "Chat not found",
+  "EMOJI_REQUIRED": "Emoji is required",
+  "CHAT_INVALID_ID": "Invalid chat id"
+}

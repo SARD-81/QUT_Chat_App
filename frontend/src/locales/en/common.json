@@ -1,0 +1,14 @@
+{
+  "appName": "Talk-A-Tive",
+  "errorOccurred": "Error occurred!",
+  "loading": "Loading...",
+  "cancel": "Cancel",
+  "search": "Search",
+  "go": "Go",
+  "noSearchResults": "No search results",
+  "tryAnotherSearch": "Try another name or email.",
+  "emailAddress": "Email Address",
+  "password": "Password",
+  "show": "Show",
+  "hide": "Hide"
+}

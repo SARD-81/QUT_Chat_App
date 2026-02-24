@@ -10,12 +10,14 @@ import {
 } from "@chakra-ui/react";
 import { useEffect } from "react";
 import { useHistory } from "react-router";
+import { useTranslation } from "react-i18next";
 import Login from "../components/Authentication/Login";
 import Signup from "../components/Authentication/Signup";
 import AppShell from "../components/layout/AppShell";
 
 function Homepage() {
   const history = useHistory();
+  const { t } = useTranslation(["common", "auth"]);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("userInfo"));
@@ -35,17 +37,17 @@ function Homepage() {
         shadow="sm"
       >
         <Text fontSize={{ base: "3xl", md: "4xl" }} fontWeight="bold" letterSpacing="tight">
-          Talk-A-Tive
+          {t("common:appName")}
         </Text>
         <Text mt={1} fontSize="sm" color={useColorModeValue("gray.500", "gray.400")}>
-          Secure team messaging with a clean, fast workflow.
+          {t("auth:tagline")}
         </Text>
       </Box>
       <Box bg={useColorModeValue("white", "gray.800")} p={4} borderRadius="lg" borderWidth="1px" shadow="sm">
         <Tabs isFitted variant="line" colorScheme="brand">
           <TabList mb="1em">
-            <Tab>Login</Tab>
-            <Tab>Sign Up</Tab>
+            <Tab>{t("auth:loginTab")}</Tab>
+            <Tab>{t("auth:signupTab")}</Tab>
           </TabList>
           <TabPanels>
             <TabPanel px={1}>

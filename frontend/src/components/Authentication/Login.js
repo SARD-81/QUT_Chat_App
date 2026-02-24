@@ -6,13 +6,16 @@ import { useState } from "react";
 import axios from "axios";
 import { useToast } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ChatState } from "../../Context/ChatProvider";
 import { appToast } from "../../utils/toast";
+import { apiErrorText } from "../../utils/apiErrorText";
 
 const Login = () => {
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);
   const toast = useToast();
+  const { t } = useTranslation(["auth", "common", "errors"]);
   const [email, setEmail] = useState();
   const [password, setPassword] = useState();
   const [loading, setLoading] = useState(false);
@@ -23,53 +26,21 @@ const Login = () => {
   const submitHandler = async () => {
     setLoading(true);
     if (!email || !password) {
-      toast({
-        ...appToast,
-        title: "Please Fill all the Feilds",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      toast({ ...appToast, title: t("auth:pleaseFillAllFields"), status: "warning", duration: 5000, isClosable: true, position: "bottom" });
       setLoading(false);
       return;
     }
 
     try {
-      const config = {
-        headers: {
-          "Content-type": "application/json",
-        },
-      };
-
-      const { data } = await axios.post(
-        "/api/user/login",
-        { email, password },
-        config
-      );
-
-      toast({
-        ...appToast,
-        title: "Login Successful",
-        status: "success",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      const config = { headers: { "Content-type": "application/json" } };
+      const { data } = await axios.post("/api/user/login", { email, password }, config);
+      toast({ ...appToast, title: t("auth:loginSuccessful"), status: "success", duration: 5000, isClosable: true, position: "bottom" });
       setUser(data);
       localStorage.setItem("userInfo", JSON.stringify(data));
       setLoading(false);
       history.push("/chats");
     } catch (error) {
-      toast({
-        ...appToast,
-        title: "Error Occured!",
-        description: error.response.data.message,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      toast({ ...appToast, title: t("common:errorOccurred"), description: apiErrorText(error, t), status: "error", duration: 5000, isClosable: true, position: "bottom" });
       setLoading(false);
     }
   };
@@ -77,49 +48,21 @@ const Login = () => {
   return (
     <VStack spacing="10px">
       <FormControl id="email" isRequired>
-        <FormLabel>Email Address</FormLabel>
-        <Input
-          value={email}
-          type="email"
-          placeholder="Enter Your Email Address"
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <FormLabel>{t("common:emailAddress")}</FormLabel>
+        <Input value={email} type="email" placeholder={t("auth:enterEmail")} onChange={(e) => setEmail(e.target.value)} />
       </FormControl>
       <FormControl id="password" isRequired>
-        <FormLabel>Password</FormLabel>
+        <FormLabel>{t("common:password")}</FormLabel>
         <InputGroup size="md">
-          <Input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type={show ? "text" : "password"}
-            placeholder="Enter password"
-          />
+          <Input value={password} onChange={(e) => setPassword(e.target.value)} type={show ? "text" : "password"} placeholder={t("auth:enterPassword")} />
           <InputRightElement width="4.5rem">
-            <Button h="1.75rem" size="sm" onClick={handleClick}>
-              {show ? "Hide" : "Show"}
-            </Button>
+            <Button h="1.75rem" size="sm" onClick={handleClick}>{show ? t("common:hide") : t("common:show")}</Button>
           </InputRightElement>
         </InputGroup>
       </FormControl>
-      <Button
-        colorScheme="blue"
-        width="100%"
-        style={{ marginTop: 15 }}
-        onClick={submitHandler}
-        isLoading={loading}
-      >
-        Login
-      </Button>
-      <Button
-        variant="solid"
-        colorScheme="red"
-        width="100%"
-        onClick={() => {
-          setEmail("guest@example.com");
-          setPassword("123456");
-        }}
-      >
-        Get Guest User Credentials
+      <Button colorScheme="blue" width="100%" style={{ marginTop: 15 }} onClick={submitHandler} isLoading={loading}>{t("auth:loginTab")}</Button>
+      <Button variant="solid" colorScheme="red" width="100%" onClick={() => { setEmail("guest@example.com"); setPassword("123456"); }}>
+        {t("auth:guestCredentials")}
       </Button>
     </VStack>
   );

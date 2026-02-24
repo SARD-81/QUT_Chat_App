@@ -2,18 +2,21 @@ import { AddIcon } from "@chakra-ui/icons";
 import { Badge, Box, Button, HStack, Stack, Text, useColorModeValue, useToast } from "@chakra-ui/react";
 import axios from "axios";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { getSender } from "../config/ChatLogics";
 import ChatLoading from "./ChatLoading";
 import GroupChatModal from "./miscellaneous/GroupChatModal";
 import { ChatState } from "../Context/ChatProvider";
 import { cacheChats, loadCachedChats } from "../storage/chatCache";
 import { appToast } from "../utils/toast";
+import { apiErrorText } from "../utils/apiErrorText";
 
 const MyChats = ({ fetchAgain, isDrawer = false, onSelectChat }) => {
   const [loggedUser, setLoggedUser] = useState();
   const [loadingChats, setLoadingChats] = useState(true);
   const { selectedChat, setSelectedChat, user, chats, setChats, notification } = ChatState();
   const toast = useToast();
+  const { t } = useTranslation(["chat", "message", "common", "errors"]);
 
   const fetchChats = async () => {
     try {
@@ -25,8 +28,8 @@ const MyChats = ({ fetchAgain, isDrawer = false, onSelectChat }) => {
       if (!navigator.onLine) return;
       toast({
         ...appToast,
-        title: "Error Occured!",
-        description: "Failed to Load the chats",
+        title: t("common:errorOccurred"),
+        description: apiErrorText(error, t) || t("chat:failedLoadChats"),
         status: "error",
       });
     } finally {
@@ -51,13 +54,13 @@ const MyChats = ({ fetchAgain, isDrawer = false, onSelectChat }) => {
 
   const getLatestMessagePreview = (latestMessage) => {
     if (!latestMessage) return "";
-    if (latestMessage.isDeleted) return "This message was deleted";
-    if (latestMessage.type === "gif") return "🎞️ GIF";
+    if (latestMessage.isDeleted) return t("message:deleted");
+    if (latestMessage.type === "gif") return `🎞️ ${t("message:gif")}`;
     if (latestMessage.content) return latestMessage.content;
     if (latestMessage.attachment) {
       return latestMessage.attachment.mimeType?.startsWith("image/")
-        ? "📷 Image"
-        : `📎 ${latestMessage.attachment.fileName || "Attachment"}`;
+        ? t("message:image")
+        : t("message:attachment", { fileName: latestMessage.attachment.fileName || t("chat:file") });
     }
     return "";
   };
@@ -76,9 +79,9 @@ const MyChats = ({ fetchAgain, isDrawer = false, onSelectChat }) => {
       h="100%"
     >
       <HStack pb={3} px={1} justifyContent="space-between" alignItems="center">
-        <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold">My Chats</Text>
+        <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold">{t("chat:myChats")}</Text>
         <GroupChatModal>
-          <Button size="sm" rightIcon={<AddIcon />} variant="outline">New Group</Button>
+          <Button size="sm" rightIcon={<AddIcon />} variant="outline">{t("chat:newGroup")}</Button>
         </GroupChatModal>
       </HStack>
       <Box p={2} bg={useColorModeValue("gray.50", "blackAlpha.300")} w="100%" h="100%" borderRadius="md" overflowY="auto">

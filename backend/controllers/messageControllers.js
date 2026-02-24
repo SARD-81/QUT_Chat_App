@@ -4,6 +4,7 @@ const Message = require("../models/messageModel");
 const User = require("../models/userModel");
 const Chat = require("../models/chatModel");
 const { MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES } = require("./uploadControllers");
+const ApiError = require("../utils/ApiError");
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
@@ -195,14 +196,14 @@ const markChatMessagesAsRead = asyncHandler(async (req, res) => {
 
   if (!mongoose.Types.ObjectId.isValid(chatId)) {
     res.status(400);
-    throw new Error("Invalid chat id");
+    throw new ApiError(400, "CHAT_INVALID_ID", "Invalid chat id");
   }
 
   const chat = await Chat.findById(chatId).select("users latestMessage");
 
   if (!chat) {
     res.status(404);
-    throw new Error("Chat not found");
+    throw new ApiError(404, "CHAT_NOT_FOUND", "Chat not found");
   }
 
   const isParticipant = chat.users.some(
@@ -264,17 +265,13 @@ const emitMessageToChatRoom = (io, chatId, eventName, payload) => {
 
 const validateMessageAccess = async (messageId, userId) => {
   if (!mongoose.Types.ObjectId.isValid(messageId)) {
-    const error = new Error("Invalid message id");
-    error.statusCode = 400;
-    throw error;
+    throw new ApiError(400, "MSG_INVALID_ID", "Invalid message id");
   }
 
   const message = await Message.findById(messageId).populate("chat", "users");
 
   if (!message) {
-    const error = new Error("Message not found");
-    error.statusCode = 404;
-    throw error;
+    throw new ApiError(404, "MSG_NOT_FOUND", "Message not found");
   }
 
   const isParticipant = (message.chat?.users || []).some(
@@ -282,9 +279,7 @@ const validateMessageAccess = async (messageId, userId) => {
   );
 
   if (!isParticipant) {
-    const error = new Error("Not authorized to access this message");
-    error.statusCode = 403;
-    throw error;
+    throw new ApiError(403, "MSG_NOT_AUTHORIZED", "Not authorized to access this message");
   }
 
   return message;
@@ -311,7 +306,7 @@ const reactToMessage = asyncHandler(async (req, res) => {
 
   if (!normalizedEmoji) {
     res.status(400);
-    throw new Error("Emoji is required");
+    throw new ApiError(400, "EMOJI_REQUIRED", "Emoji is required");
   }
 
   let message;
@@ -354,7 +349,7 @@ const removeReaction = asyncHandler(async (req, res) => {
 
   if (!normalizedEmoji) {
     res.status(400);
-    throw new Error("Emoji is required");
+    throw new ApiError(400, "EMOJI_REQUIRED", "Emoji is required");
   }
 
   let message;
@@ -388,8 +383,7 @@ const editMessage = asyncHandler(async (req, res) => {
   const { content } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(messageId)) {
-    res.status(400);
-    throw new Error("Invalid message id");
+    throw new ApiError(400, "MSG_INVALID_ID", "Invalid message id");
   }
 
   const trimmedContent = typeof content === "string" ? content.trim() : "";
@@ -402,13 +396,11 @@ const editMessage = asyncHandler(async (req, res) => {
   const message = await Message.findById(messageId).populate("chat", "users");
 
   if (!message) {
-    res.status(404);
-    throw new Error("Message not found");
+    throw new ApiError(404, "MSG_NOT_FOUND", "Message not found");
   }
 
   if (message.sender.toString() !== req.user._id.toString()) {
-    res.status(403);
-    throw new Error("Not authorized to edit this message");
+    throw new ApiError(403, "MSG_NOT_AUTHORIZED", "Not authorized to edit this message");
   }
 
   if (message.isDeleted) {
@@ -451,20 +443,17 @@ const deleteMessage = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(messageId)) {
-    res.status(400);
-    throw new Error("Invalid message id");
+    throw new ApiError(400, "MSG_INVALID_ID", "Invalid message id");
   }
 
   const message = await Message.findById(messageId).populate("chat", "users");
 
   if (!message) {
-    res.status(404);
-    throw new Error("Message not found");
+    throw new ApiError(404, "MSG_NOT_FOUND", "Message not found");
   }
 
   if (message.sender.toString() !== req.user._id.toString()) {
-    res.status(403);
-    throw new Error("Not authorized to delete this message");
+    throw new ApiError(403, "MSG_NOT_AUTHORIZED", "Not authorized to delete this message");
   }
 
   if (message.isDeleted) {
@@ -475,7 +464,7 @@ const deleteMessage = asyncHandler(async (req, res) => {
     message.originalContent = message.content;
   }
 
-  message.content = "This message was deleted";
+  message.content = "";
   message.isDeleted = true;
   message.deletedAt = new Date();
 

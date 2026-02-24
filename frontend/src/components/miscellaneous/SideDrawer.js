@@ -21,6 +21,7 @@ import { BellIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { Avatar } from "@chakra-ui/avatar";
 import { useHistory } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 import { Badge, useColorModeValue, useToast } from "@chakra-ui/react";
 import ChatLoading from "../ChatLoading";
@@ -30,9 +31,11 @@ import { getSender } from "../../config/ChatLogics";
 import UserListItem from "../userAvatar/UserListItem";
 import { ChatState } from "../../Context/ChatProvider";
 import ColorModeToggle from "../common/ColorModeToggle";
+import LanguageSwitcher from "../common/LanguageSwitcher";
 import EmptyState from "../common/EmptyState";
 import { Search2Icon, ChatIcon } from "@chakra-ui/icons";
 import { appToast } from "../../utils/toast";
+import { apiErrorText } from "../../utils/apiErrorText";
 
 function SideDrawer({ onOpenChatsDrawer }) {
   const [search, setSearch] = useState("");
@@ -50,6 +53,7 @@ function SideDrawer({ onOpenChatsDrawer }) {
   } = ChatState();
 
   const toast = useToast();
+  const { t } = useTranslation(["common", "chat", "errors"]);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const history = useHistory();
   const searchInputRef = useRef(null);
@@ -74,7 +78,7 @@ function SideDrawer({ onOpenChatsDrawer }) {
 
   const handleSearch = async () => {
     if (!search) {
-      toast({ ...appToast, title: "Please enter something in search", status: "warning" });
+      toast({ ...appToast, title: t("chat:pleaseEnterSearch"), status: "warning" });
       return;
     }
 
@@ -86,8 +90,8 @@ function SideDrawer({ onOpenChatsDrawer }) {
     } catch (error) {
       toast({
         ...appToast,
-        title: "Error Occured!",
-        description: "Failed to Load the Search Results",
+        title: t("common:errorOccurred"),
+        description: t("chat:failedSearchResults"),
         status: "error",
       });
     } finally {
@@ -110,7 +114,7 @@ function SideDrawer({ onOpenChatsDrawer }) {
       setSelectedChat(data);
       onClose();
     } catch (error) {
-      toast({ ...appToast, title: "Error fetching the chat", description: error.message, status: "error" });
+      toast({ ...appToast, title: t("common:errorOccurred"), description: apiErrorText(error, t) || t("chat:errorFetchingChat"), status: "error" });
     } finally {
       setLoadingChat(false);
     }
@@ -132,18 +136,17 @@ function SideDrawer({ onOpenChatsDrawer }) {
         zIndex={5}
       >
         <HStack spacing={2}>
-          <Tooltip label="Search users (Ctrl/Cmd + K)" hasArrow placement="bottom-end">
+          <Tooltip label={t("chat:searchUsersShortcut")} hasArrow placement="bottom-end">
             <Button variant="ghost" onClick={onOpen} leftIcon={<Search2Icon />}>
-              <Text d={{ base: "none", md: "flex" }}>Search</Text>
+              <Text d={{ base: "none", md: "flex" }}>{t("common:search")}</Text>
             </Button>
           </Tooltip>
-          <Button d={{ base: "inline-flex", md: "none" }} variant="ghost" onClick={onOpenChatsDrawer} leftIcon={<ChatIcon />}>
-            Chats
-          </Button>
+          <Button d={{ base: "inline-flex", md: "none" }} variant="ghost" onClick={onOpenChatsDrawer} leftIcon={<ChatIcon />}>{t("chat:chats")}</Button>
         </HStack>
-        <Text fontSize="xl" fontWeight="bold">Talk-A-Tive</Text>
+        <Text fontSize="xl" fontWeight="bold">{t("common:appName")}</Text>
         <HStack spacing={1}>
           <ColorModeToggle />
+          <LanguageSwitcher />
           <Menu>
             <MenuButton p={1} position="relative" aria-label="Open notifications">
               {notification.length > 0 && (
@@ -166,7 +169,7 @@ function SideDrawer({ onOpenChatsDrawer }) {
               <BellIcon fontSize="2xl" m={1} />
             </MenuButton>
             <MenuList>
-              {!notification.length && <MenuItem>No new messages</MenuItem>}
+              {!notification.length && <MenuItem>{t("chat:noNewMessages")}</MenuItem>}
               {notification.map((notif) => (
                 <MenuItem
                   key={notif._id}
@@ -176,8 +179,8 @@ function SideDrawer({ onOpenChatsDrawer }) {
                   }}
                 >
                   {notif.chat.isGroupChat
-                    ? `New Message in ${notif.chat.chatName}`
-                    : `New Message from ${getSender(user, notif.chat.users)}`}
+                    ? t("chat:newMessageIn", { chatName: notif.chat.chatName })
+                    : t("chat:newMessageFrom", { userName: getSender(user, notif.chat.users) })}
                 </MenuItem>
               ))}
             </MenuList>
@@ -188,10 +191,10 @@ function SideDrawer({ onOpenChatsDrawer }) {
             </MenuButton>
             <MenuList>
               <ProfileModal user={user}>
-                <MenuItem>My Profile</MenuItem>
+                <MenuItem>{t("chat:myProfile")}</MenuItem>
               </ProfileModal>
               <MenuDivider />
-              <MenuItem onClick={logoutHandler}>Logout</MenuItem>
+              <MenuItem onClick={logoutHandler}>{t("chat:logout")}</MenuItem>
             </MenuList>
           </Menu>
         </HStack>
@@ -200,22 +203,22 @@ function SideDrawer({ onOpenChatsDrawer }) {
       <Drawer placement="left" onClose={onClose} isOpen={isOpen}>
         <DrawerOverlay />
         <DrawerContent>
-          <DrawerHeader borderBottomWidth="1px">Search Users</DrawerHeader>
+          <DrawerHeader borderBottomWidth="1px">{t("chat:searchUsers")}</DrawerHeader>
           <DrawerBody>
             <Box d="flex" pb={2}>
               <Input
                 ref={searchInputRef}
-                placeholder="Search by name or email"
+                placeholder={t("chat:searchByNameOrEmail")}
                 mr={2}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <Button onClick={handleSearch}>Go</Button>
+              <Button onClick={handleSearch}>{t("common:go")}</Button>
             </Box>
             {loading ? (
               <ChatLoading variant="user-list" />
             ) : search && !searchResult?.length ? (
-              <EmptyState icon={Search2Icon} title="No search results" hint="Try another name or email." />
+              <EmptyState icon={Search2Icon} title={t("common:noSearchResults")} hint={t("common:tryAnotherSearch")} />
             ) : (
               searchResult?.map((searchedUser) => (
                 <UserListItem

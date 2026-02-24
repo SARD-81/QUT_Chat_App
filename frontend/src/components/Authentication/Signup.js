@@ -6,14 +6,17 @@ import { useToast } from "@chakra-ui/toast";
 import axios from "axios";
 import { useState } from "react";
 import { useHistory } from "react-router";
+import { useTranslation } from "react-i18next";
 import { uploadFileToCloudinary, validateAttachmentFile } from "../../config/uploadConfig";
 import { appToast } from "../../utils/toast";
+import { apiErrorText } from "../../utils/apiErrorText";
 
 const Signup = () => {
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);
   const toast = useToast();
   const history = useHistory();
+  const { t } = useTranslation(["auth", "common", "errors"]);
 
   const [name, setName] = useState();
   const [email, setEmail] = useState();
@@ -25,85 +28,32 @@ const Signup = () => {
   const submitHandler = async () => {
     setPicLoading(true);
     if (!name || !email || !password || !confirmpassword) {
-      toast({
-        ...appToast,
-        title: "Please Fill all the Feilds",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      toast({ ...appToast, title: t("auth:pleaseFillAllFields"), status: "warning", duration: 5000, isClosable: true, position: "bottom" });
       setPicLoading(false);
       return;
     }
     if (password !== confirmpassword) {
-      toast({
-        ...appToast,
-        title: "Passwords Do Not Match",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      toast({ ...appToast, title: t("auth:passwordsDoNotMatch"), status: "warning", duration: 5000, isClosable: true, position: "bottom" });
       return;
     }
-    console.log(name, email, password, pic);
     try {
-      const config = {
-        headers: {
-          "Content-type": "application/json",
-        },
-      };
-      const { data } = await axios.post(
-        "/api/user",
-        {
-          name,
-          email,
-          password,
-          pic,
-        },
-        config
-      );
-      console.log(data);
-      toast({
-        ...appToast,
-        title: "Registration Successful",
-        status: "success",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      const config = { headers: { "Content-type": "application/json" } };
+      const { data } = await axios.post("/api/user", { name, email, password, pic }, config);
+      toast({ ...appToast, title: t("auth:registrationSuccessful"), status: "success", duration: 5000, isClosable: true, position: "bottom" });
       localStorage.setItem("userInfo", JSON.stringify(data));
       setPicLoading(false);
       history.push("/chats");
     } catch (error) {
-      toast({
-        ...appToast,
-        title: "Error Occured!",
-        description: error.response.data.message,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      toast({ ...appToast, title: t("common:errorOccurred"), description: apiErrorText(error, t), status: "error", duration: 5000, isClosable: true, position: "bottom" });
       setPicLoading(false);
     }
   };
 
   const postDetails = async (pics) => {
     setPicLoading(true);
-
     const validationError = validateAttachmentFile(pics, { avatarOnly: true });
-
     if (validationError) {
-      toast({
-        ...appToast,
-        title: validationError,
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      toast({ ...appToast, title: validationError, status: "warning", duration: 5000, isClosable: true, position: "bottom" });
       setPicLoading(false);
       return;
     }
@@ -112,15 +62,7 @@ const Signup = () => {
       const uploaded = await uploadFileToCloudinary(pics, "avatar");
       setPic(uploaded.url);
     } catch (err) {
-      toast({
-        ...appToast,
-        title: "Image upload failed",
-        description: err.response?.data?.message || "Please try again",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      toast({ ...appToast, title: t("auth:imageUploadFailed"), description: err.response?.data?.message || t("auth:pleaseTryAgain"), status: "error", duration: 5000, isClosable: true, position: "bottom" });
     } finally {
       setPicLoading(false);
     }
@@ -128,69 +70,22 @@ const Signup = () => {
 
   return (
     <VStack spacing="5px">
-      <FormControl id="first-name" isRequired>
-        <FormLabel>Name</FormLabel>
-        <Input
-          placeholder="Enter Your Name"
-          onChange={(e) => setName(e.target.value)}
-        />
-      </FormControl>
-      <FormControl id="email" isRequired>
-        <FormLabel>Email Address</FormLabel>
-        <Input
-          type="email"
-          placeholder="Enter Your Email Address"
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </FormControl>
+      <FormControl id="first-name" isRequired><FormLabel>{t("auth:name")}</FormLabel><Input placeholder={t("auth:enterYourName")} onChange={(e) => setName(e.target.value)} /></FormControl>
+      <FormControl id="email" isRequired><FormLabel>{t("common:emailAddress")}</FormLabel><Input type="email" placeholder={t("auth:enterEmail")} onChange={(e) => setEmail(e.target.value)} /></FormControl>
       <FormControl id="password" isRequired>
-        <FormLabel>Password</FormLabel>
-        <InputGroup size="md">
-          <Input
-            type={show ? "text" : "password"}
-            placeholder="Enter Password"
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <InputRightElement width="4.5rem">
-            <Button h="1.75rem" size="sm" onClick={handleClick}>
-              {show ? "Hide" : "Show"}
-            </Button>
-          </InputRightElement>
+        <FormLabel>{t("common:password")}</FormLabel>
+        <InputGroup size="md"><Input type={show ? "text" : "password"} placeholder={t("auth:enterPassword")} onChange={(e) => setPassword(e.target.value)} />
+          <InputRightElement width="4.5rem"><Button h="1.75rem" size="sm" onClick={handleClick}>{show ? t("common:hide") : t("common:show")}</Button></InputRightElement>
         </InputGroup>
       </FormControl>
       <FormControl id="password" isRequired>
-        <FormLabel>Confirm Password</FormLabel>
-        <InputGroup size="md">
-          <Input
-            type={show ? "text" : "password"}
-            placeholder="Confirm password"
-            onChange={(e) => setConfirmpassword(e.target.value)}
-          />
-          <InputRightElement width="4.5rem">
-            <Button h="1.75rem" size="sm" onClick={handleClick}>
-              {show ? "Hide" : "Show"}
-            </Button>
-          </InputRightElement>
+        <FormLabel>{t("auth:confirmPassword")}</FormLabel>
+        <InputGroup size="md"><Input type={show ? "text" : "password"} placeholder={t("auth:confirmPasswordPlaceholder")} onChange={(e) => setConfirmpassword(e.target.value)} />
+          <InputRightElement width="4.5rem"><Button h="1.75rem" size="sm" onClick={handleClick}>{show ? t("common:hide") : t("common:show")}</Button></InputRightElement>
         </InputGroup>
       </FormControl>
-      <FormControl id="pic">
-        <FormLabel>Upload your Picture</FormLabel>
-        <Input
-          type="file"
-          p={1.5}
-          accept="image/*"
-          onChange={(e) => postDetails(e.target.files[0])}
-        />
-      </FormControl>
-      <Button
-        colorScheme="blue"
-        width="100%"
-        style={{ marginTop: 15 }}
-        onClick={submitHandler}
-        isLoading={picLoading}
-      >
-        Sign Up
-      </Button>
+      <FormControl id="pic"><FormLabel>{t("auth:uploadPicture")}</FormLabel><Input type="file" p={1.5} accept="image/*" onChange={(e) => postDetails(e.target.files[0])} /></FormControl>
+      <Button colorScheme="blue" width="100%" style={{ marginTop: 15 }} onClick={submitHandler} isLoading={picLoading}>{t("auth:signUp")}</Button>
     </VStack>
   );
 };

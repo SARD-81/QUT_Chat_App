@@ -5,6 +5,7 @@ import "./styles.css";
 import { IconButton, Spinner, useToast, HStack, Button, useColorModeValue } from "@chakra-ui/react";
 import { getSender, getSenderFull } from "../config/ChatLogics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 import { ArrowBackIcon, AttachmentIcon, CloseIcon, ChatIcon } from "@chakra-ui/icons";
 import ProfileModal from "./miscellaneous/ProfileModal";
@@ -21,6 +22,7 @@ import { cacheMessages, loadCachedMessages } from "../storage/chatCache";
 import ChatLoading from "./ChatLoading";
 import EmptyState from "./common/EmptyState";
 import { appToast } from "../utils/toast";
+import { apiErrorText } from "../utils/apiErrorText";
 const ENDPOINT = "http://localhost:5000"; // "https://talk-a-tive.herokuapp.com"; -> After deployment
 var socket, selectedChatCompare;
 
@@ -43,6 +45,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const fileInputRef = useRef(null);
   const shouldScrollToBottomRef = useRef(false);
   const toast = useToast();
+  const { t } = useTranslation(["chat", "common", "message", "errors"]);
 
   const panelSurfaceBg = useColorModeValue("gray.50", "blackAlpha.300");
   const panelBorderColor = useColorModeValue("gray.200", "whiteAlpha.200");
@@ -113,8 +116,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
       toast({
         ...appToast,
-        title: "Error Occured!",
-        description: "Failed to Load the Messages",
+        title: t("common:errorOccurred"),
+        description: t("chat:failedLoadMessages"),
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -156,8 +159,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     } catch (error) {
       toast({
         ...appToast,
-        title: "Error Occured!",
-        description: "Failed to Load older Messages",
+        title: t("common:errorOccurred"),
+        description: t("chat:failedLoadOlderMessages"),
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -238,8 +241,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     } catch (error) {
       toast({
         ...appToast,
-        title: "Error Occured!",
-        description: "Failed to update reaction",
+        title: t("common:errorOccurred"),
+        description: t("chat:failedReaction"),
         status: "error",
         duration: 3000,
         isClosable: true,
@@ -273,7 +276,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   }, [setChats]);
 
   const handleEditMessage = async (message) => {
-    const nextContent = window.prompt("Edit message", message.content);
+    const nextContent = window.prompt(t("chat:editMessagePrompt"), message.content);
 
     if (nextContent === null) return;
 
@@ -294,8 +297,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     } catch (error) {
       toast({
         ...appToast,
-        title: "Error Occured!",
-        description: "Failed to edit the message",
+        title: t("common:errorOccurred"),
+        description: t("chat:failedEditMessage"),
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -305,7 +308,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   };
 
   const handleDeleteMessage = async (message) => {
-    const confirmed = window.confirm("Delete this message?");
+    const confirmed = window.confirm(t("chat:deleteMessageConfirm"));
 
     if (!confirmed) return;
 
@@ -321,8 +324,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     } catch (error) {
       toast({
         ...appToast,
-        title: "Error Occured!",
-        description: "Failed to delete the message",
+        title: t("common:errorOccurred"),
+        description: t("chat:failedDeleteMessage"),
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -380,8 +383,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     } catch (error) {
       toast({
         ...appToast,
-        title: "Error Occured!",
-        description: "Failed to send the Message",
+        title: t("common:errorOccurred"),
+        description: t("chat:failedSendMessage"),
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -425,8 +428,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     } catch (error) {
       toast({
         ...appToast,
-        title: "Attachment upload failed",
-        description: error.response?.data?.message || "Please try again",
+        title: t("chat:attachmentUploadFailed"),
+        description: apiErrorText(error, t),
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -789,7 +792,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                     replyingToMessageId={replyingTo?._id}
                   />
                 ) : (
-                  <EmptyState icon={ChatIcon} title="No messages yet — say hi!" hint="Start the conversation with a quick intro." />
+                  <EmptyState icon={ChatIcon} title={t("chat:noMessagesYet")} hint={t("chat:startConversation")} />
                 )}
               </div>
             )}
@@ -823,15 +826,13 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                   <HStack justifyContent="space-between" alignItems="flex-start">
                     <Box>
                       <Text fontSize="xs" color="gray.600" fontWeight="semibold">
-                        Replying to {replyingTo.sender?.name || "message"}
+                        {t("chat:replyingTo", { name: replyingTo.sender?.name || t("chat:replyFallback") })}
                       </Text>
                       <Text fontSize="sm" color="gray.700" noOfLines={2}>
-                        {replyingTo.isDeleted ? "This message was deleted" : replyingTo.content}
+                        {replyingTo.isDeleted ? t("message:deleted") : replyingTo.content}
                       </Text>
                     </Box>
-                    <Button size="xs" onClick={() => setReplyingTo(null)}>
-                      Cancel
-                    </Button>
+                    <Button size="xs" onClick={() => setReplyingTo(null)}>{t("common:cancel")}</Button>
                   </HStack>
                 </Box>
               )}
@@ -844,10 +845,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                   justifyContent="space-between"
                 >
                   <Text fontSize="sm" noOfLines={1}>
-                    Attached: {pendingAttachment.fileName}
+                    {t("chat:attached", { fileName: pendingAttachment.fileName })}
                   </Text>
                   <IconButton
-                    aria-label="Remove attachment"
+                    aria-label={t("chat:removeAttachment")}
                     size="xs"
                     icon={<CloseIcon />}
                     onClick={() => setPendingAttachment(null)}
@@ -866,7 +867,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                   isDisabled={!selectedChat || attachmentUploading}
                 />
                 <IconButton
-                  aria-label="Attach file"
+                  aria-label={t("chat:attachFile")}
                   icon={<AttachmentIcon />}
                   onClick={() => fileInputRef.current?.click()}
                   isLoading={attachmentUploading}
@@ -874,7 +875,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 <Input
                   variant="filled"
                   bg={messageInputBg}
-                  placeholder="Enter a message.."
+                  placeholder={t("chat:enterMessage")}
                   value={newMessage}
                   onChange={typingHandler}
                 />
@@ -883,9 +884,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                   onClick={sendCurrentMessage}
                   isDisabled={!newMessage.trim() && !pendingAttachment}
                   isLoading={attachmentUploading}
-                >
-                  Send
-                </Button>
+                >{t("chat:send")}</Button>
               </HStack>
             </FormControl>
           </Box>
@@ -893,7 +892,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       ) : (
         // to get socket.io on same page
         <Box d="flex" alignItems="center" justifyContent="center" h="100%" w="100%">
-          <EmptyState icon={ChatIcon} title="Select a chat to start messaging" hint="Choose a conversation from the left panel to begin." />
+          <EmptyState icon={ChatIcon} title={t("chat:selectChat")} hint={t("chat:chooseConversation")} />
         </Box>
       )}
     </>

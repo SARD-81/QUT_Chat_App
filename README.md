@@ -1,153 +1,207 @@
+# QUT-Caht-App - سامانه گفت‌وگوی بلادرنگ
 
-# Talk-A-Tive
+**QUT-Caht-App** یک برنامه چت فول‌استک با قابلیت‌های پیشرفته است که با استفاده از **MERN Stack** (MongoDB، Express، React، Node.js) و **Socket.io** برای ارتباط بلادرنگ پیاده‌سازی شده است. این پروژه علاوه بر امکانات پایه‌ای چت، شامل ویژگی‌های مدرنی مانند **پشتیبانی از چند زبان (فارسی/انگلیسی)**، **واکنش به پیام‌ها**، **ویرایش و حذف نرم**، **رسید خوانده شدن**، **ارسال فایل و GIF**، **کش آفلاین** و **رابط کاربری واکنش‌گرا با تم روشن/تاریک** می‌باشد.
 
-Talk-a-tive is a Full Stack Chatting App.
-Uses Socket.io for real time communication and stores user details in encrypted format in Mongo DB Database.
-## Tech Stack
+---
 
-**Client:** React JS
+## ✨ ویژگی‌های اصلی
 
-**Server:** Node JS, Express JS
+- **احراز هویت امن** (ثبت‌نام و ورود با هش‌سازی رمز عبور با bcrypt + JWT)
+- **چت بلادرنگ یک‌به‌یک و گروهی** با نمایش وضعیت تایپ
+- **پشتیبانی از چند زبان (i18n)** - هم‌اکنون فارسی و انگلیسی با قابلیت تغییر در لحظه و پشتیبانی کامل از RTL
+- **واکنش (Reaction) به پیام‌ها** با ایموجی
+- **ویرایش و حذف نرم پیام** (حذف بدون پاک کردن رکورد از پایگاه داده)
+- **رسید تحویل و مشاهده (Delivered/Read receipts)**
+- **پاسخ به پیام (Reply)**
+- **ارسال فایل (تصویر، سند و ...)** با اعتبارسنجی حجم (حداکثر ۱۰ مگابایت) و آپلود امن به Cloudinary
+- **ارسال GIF** با استفاده از Tenor API
+- **صفحه‌بندی پیام‌ها** برای عملکرد بهینه در چت‌های طولانی
+- **کش آفلاین (Offline Cache)** با IndexedDB – دسترسی به پیام‌های اخیر حتی در قطع اینترنت
+- **جست‌وجوی کاربران** با قابلیت regex
+- **مدیریت گروه‌ها** (ایجاد، تغییر نام، افزودن/حذف اعضا)
+- **اعلان‌های پیام جدید**
+- **رابط کاربری مدرن** با Chakra UI، تم روشن/تاریک، Skeleton Loader، و طراحی واکنش‌گرا (موبایل/دسکتاپ)
+- **میان‌برهای صفحه‌کلید** (Ctrl+K برای جست‌وجو، Esc برای لغو پاسخ)
 
-**Database:** Mongo DB
-  
-## Demo
+---
 
-[https://talk-a-tive.herokuapp.com/](https://talk-a-tive-7fgq.onrender.com)
+## 🛠️ تکنولوژی‌های استفاده‌شده
 
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/group%20%2B%20notif.PNG)
-## Run Locally
+- **Frontend**: React.js (Create React App) + Chakra UI + Socket.io-client
+- **Backend**: Node.js + Express.js + Socket.io
+- **Database**: MongoDB + Mongoose ODM
+- **Authentication**: JWT (JSON Web Token) + bcrypt
+- **Upload**: Cloudinary (با امضای سمت سرور)
+- **Internationalization**: react-i18next, i18next-http-backend, i18next-browser-languagedetector
+- **Offline Cache**: IndexedDB
+- **Security**: Helmet, CORS, Rate limiting
+- **Other**: Axios, Moment.js, React-icons, etc.
 
-Clone the project
+---
 
-```bash
-  git clone https://github.com/piyush-eon/mern-chat-app
+## 🚀 اجرای پروژه در محیط توسعه
+
+### پیش‌نیازها
+- Node.js (نسخه ۱۴ یا بالاتر)
+- MongoDB (محلی یا ابری)
+- حساب Cloudinary (برای آپلود فایل)
+- (اختیاری) کلید API از Tenor برای GIF
+
+### مراحل اجرا
+
+1. **کلون کردن مخزن**
+   ```bash
+   git clone https://github.com/SARD-81/QUT-Caht-App.git
+   cd QUT-Caht-App
+   ```
+
+2. **نصب وابستگی‌های سرور**
+   ```bash
+   npm install
+   ```
+
+3. **نصب وابستگی‌های کلاینت**
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+
+4. **تنظیم متغیرهای محیطی**
+   - فایل `.env` در ریشه پروژه ایجاد کرده و مقادیر زیر را پر کنید (نمونه در `.env.example` موجود است):
+
+   ```env
+   PORT=5000
+   MONGO_URI=mongodb://localhost:27017/chatapp
+   JWT_SECRET=your_jwt_secret
+   CORS_ORIGINS=http://localhost:3000
+   RATE_LIMIT_WINDOW_MS=900000
+   RATE_LIMIT_MAX=20
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+   ```
+
+   - در پوشه `frontend` فایل `.env` ایجاد کرده و (در صورت نیاز) کلید Tenor را قرار دهید:
+     ```
+     REACT_APP_TENOR_API_KEY=your_tenor_api_key
+     ```
+
+5. **اجرای سرور و کلاینت به طور همزمان**
+   ```bash
+   npm run start   # سرور روی پورت 5000 اجرا می‌شود
+   ```
+   در یک ترمینال جداگانه:
+   ```bash
+   cd frontend
+   npm start       # کلاینت روی پورت 3000 اجرا می‌شود
+   ```
+
+   سپس مرورگر را باز کرده و به `http://localhost:3000` بروید.
+
+---
+
+## 🌐 پشتیبانی از چند زبان (i18n)
+
+پروژه با استفاده از `react-i18next` قابلیت چندزبانه را پیاده‌سازی کرده است.
+
+### زبان‌های فعلی
+- انگلیسی (en)
+- فارسی (fa) با پشتیبانی کامل از RTL
+
+### ساختار فایل‌های ترجمه
+فایل‌های ترجمه در مسیر `public/locales/{lang}/translation.json` قرار دارند. برای افزودن زبان جدید:
+1. پوشه‌ای با کد زبان (مثلاً `de`) در `public/locales` ایجاد کنید.
+2. فایل `translation.json` را با کلیدهای مشابه پر کنید.
+3. کتابخانه به طور خودکار زبان جدید را تشخیص داده و در منوی انتخاب زبان ظاهر می‌شود.
+
+### تغییر زبان در حین اجرا
+کامپوننت `LanguageSwitcher` در بالای صفحه قرار دارد. با کلیک روی آن، زبان بلافاصله تغییر کرده و جهت صفحه (RTL/LTR) به‌طور خودکار تنظیم می‌شود.
+
+### ذخیره زبان انتخابی کاربر
+زبان انتخابی در `localStorage` ذخیره شده و همچنین در پروفایل کاربر (فیلد `preferredLanguage`) در پایگاه داده ثبت می‌شود تا پس از ورود مجدد، همان زبان اعمال گردد.
+
+---
+
+## 📦 کش آفلاین (Offline Cache)
+
+برای بهبود تجربه کاربری در شرایط قطع اینترنت، از IndexedDB برای ذخیره چت‌ها و پیام‌های اخیر استفاده شده است.
+
+- هنگام بارگذاری صفحه، ابتدا داده‌ها از کش خوانده می‌شوند.
+- در صورت آنلاین بودن، داده‌ها با سرور همگام‌سازی شده و کش به‌روز می‌شود.
+- یک بنر آفلاین (`OfflineBanner`) در بالای صفحه وضعیت عدم اتصال را نمایش می‌دهد.
+
+---
+
+## 🔐 امنیت
+
+- **هش کردن رمز عبور** با bcrypt (فقط هنگام تغییر فیلد password).
+- **احراز هویت با JWT** ذخیره شده در localStorage.
+- **هدرهای امنیتی** با Helmet (CSP پیش‌فرض فعال است).
+- **CORS** محدود به دامنه‌های مجاز.
+- **محدودسازی نرخ درخواست** (Rate Limiting) روی مسیرهای حساس (ثبت‌نام، ورود، جست‌وجو) با قابلیت تنظیم از طریق متغیرهای محیطی.
+- **اعتبارسنجی فایل‌ها** از نظر نوع و حجم (۱۰ مگابایت) در سرور.
+- **نرمال‌سازی ایمیل** (تبدیل به حروف کوچک و حذف فاصله) برای جلوگیری از ثبت‌نام تکراری.
+
+---
+
+## ⚡ کارایی
+
+- **صفحه‌بندی پیام‌ها** با پارامترهای `limit` و `before` برای بارگذاری تدریجی.
+- **ایندکس‌گذاری** در MongoDB روی فیلدهای پراستعلام (chat + createdAt).
+- **استفاده از Socket.io** برای به‌روزرسانی آنی و کاهش Polling.
+- **کش آفلاین** برای کاهش درخواست‌های تکراری.
+- **بارگذاری تنبل (Lazy Loading) فایل‌های ترجمه** با i18next-backend.
+
+---
+
+## 🌱 توسعه‌های آتی (پیشنهادی)
+
+- افزودن تست‌های واحد و یکپارچه
+- جست‌وجوی پیام درون چت
+- بهبود سطح دسترسی در گروه‌ها (RBAC)
+- رمزنگاری سرتاسری (E2EE)
+- مستندسازی API با Swagger
+- مانیتورینگ پیشرفته با Winston
+
+---
+
+## 📁 ساختار پروژه (مونو‌ریپو)
+
+```
+QUT-Caht-App/
+├── backend/
+│   ├── config/         # تنظیمات (DB، CORS و ...)
+│   ├── controllers/    # منطق تجاری
+│   ├── middleware/     # میان‌افزارها (auth، error handler، rate limit)
+│   ├── models/         # مدل‌های MongoDB
+│   ├── routes/         # مسیرهای API
+│   └── server.js       # نقطه ورود سرور
+├── frontend/
+│   ├── public/
+│   │   └── locales/    # فایل‌های ترجمه
+│   ├── src/
+│   │   ├── components/ # کامپوننت‌های React
+│   │   ├── context/    # Context API (ChatProvider)
+│   │   ├── theme/      # تنظیمات تم Chakra UI
+│   │   └── i18n.js     # پیکربندی i18n
+│   └── package.json
+├── .env.example        # نمونه متغیرهای محیطی
+└── README.md
 ```
 
-Go to the project directory
+---
 
-```bash
-  cd mern-chat-app
-```
+## 🤝 همکاری
 
-Install dependencies
+اگر مایل به مشارکت در توسعه هستید، لطفاً ابتدا issue ثبت کنید یا Pull Request ارسال نمایید.
 
-```bash
-  npm install
-```
+---
 
-```bash
-  cd frontend/
-  npm install
-```
+## 📄 مجوز
 
-Start the server
+این پروژه تحت مجوز MIT منتشر شده است.
 
-```bash
-  npm run start
-```
-Start the Client
+---
 
-```bash
-  //open now terminal
-  cd frontend
-  npm start
-```
-
-  
-# Features
-
-### Authenticaton
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/login.PNG)
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/signup.PNG)
-### Real Time Chatting with Typing indicators
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/real-time.PNG)
-### One to One chat
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/mainscreen.PNG)
-### Search Users
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/search.PNG)
-### Create Group Chats
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/new%20grp.PNG)
-### Notifications 
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/group%20%2B%20notif.PNG)
-### Add or Remove users from group
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/add%20rem.PNG)
-### View Other user Profile
-![](https://github.com/piyush-eon/mern-chat-app/blob/master/screenshots/profile.PNG)
-
-
-## Environment variables
-
-Add these variables to your `.env` file for secure Cloudinary uploads:
-
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
-
-Attachment uploads are now signed by the backend at `POST /api/upload/signature` and validated for MIME type + max size (10MB).
-
-## Rate limiting
-
-To reduce abuse on authentication/user lookup endpoints, the backend now rate-limits:
-- `POST /api/user` (register)
-- `POST /api/user/login`
-- `GET /api/user?search=`
-
-When the limit is exceeded, the API responds with HTTP `429` and a JSON error message.
-
-Configure the limiter in your environment:
-- `RATE_LIMIT_WINDOW_MS` - window duration in milliseconds (default: `900000`, i.e. 15 minutes)
-- `RATE_LIMIT_MAX` - max requests per IP within the window for the protected routes (default: `20`)
-
-## Security headers (Helmet)
-
-The Express server now uses [Helmet](https://helmetjs.github.io/) for baseline HTTP security headers:
-
-- `app.use(helmet())` is registered early in the middleware chain in `backend/server.js`;
-- this is a production-safe default for React SPA hosting and API routes;
-- Helmet's default CSP is enabled. If you later load scripts/styles/fonts/images from external domains, extend CSP directives explicitly rather than disabling CSP globally.
-
-### CSP caveat for SPA integrations
-If you add third-party assets (analytics, CDNs, fonts, widgets), update Helmet config with `helmet.contentSecurityPolicy` directives to allow only the exact sources your app needs.
-
-## Made By
-
-- [@Piyush-eon](https://github.com/piyush-eon)
-
-  
-
-## Backend user model fix (data integrity)
-
-A critical fix was applied to `backend/models/userModel.js`:
-- corrected schema field type declarations to use `String` (constructor) instead of the string literal type;
-- corrected `timestamps` option (previous typo prevented `createdAt`/`updatedAt` generation);
-- fixed password hashing middleware to hash only when `password` is modified;
-- enforced email normalization (`lowercase` + `trim`) and retained uniqueness.
-
-### Migration considerations
-- Existing user records keep their current email casing until updated. New writes normalize email to lowercase.
-- If you have legacy duplicate emails that differ only by case/whitespace, clean them before relying on the unique email index in production.
-
-## UI Modernization
-
-The frontend now includes an enterprise-style visual refresh without changing app architecture or API behavior.
-
-### What changed
-- Added a centralized Chakra theme at `frontend/src/theme/index.js` with design tokens for typography, radii, shadows, colors, global styles, and key component overrides.
-- Wired theme + `ColorModeScript` in `frontend/src/index.js`.
-- Added reusable UI primitives:
-  - `ColorModeToggle` for light/dark mode.
-  - `EmptyState` for consistent no-data messaging.
-  - `AppShell` for page-level spacing and surface consistency.
-- Polished homepage and chat surfaces, spacing, and panel hierarchy.
-- Improved loading UX with skeleton placeholders for chats, messages, and search results.
-- Improved message bubbles, hover/focus affordances, and chat list density.
-- Added mobile-friendly chat list access via Drawer and keyboard shortcut support (`Ctrl/Cmd + K` for search; `Esc` clears active reply draft).
-
-### Adjusting design tokens
-Update `frontend/src/theme/index.js` to tune:
-- `colors.brand` for action/accent colors.
-- `radii`, `shadows`, and `fonts` for visual tone.
-- `components` overrides (Button/Input/Drawer/Modal/Menu/Tabs/Badge).
-
-Keep component-level styles token-driven (`useColorModeValue` + theme values) for consistency.
+**ساخته شده با ❤️ توسط [@SARD-81](https://github.com/SARD-81)
